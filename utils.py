@@ -3,6 +3,17 @@ import os.path as ops
 import cv2
 import numpy as np
 
+def init_file(img_path):
+    files = os.listdir(img_path)
+    files_arr=[]
+    for file_name in files:
+        full_name = ops.join(img_path,file_name)
+        if ops.isfile(full_name):
+            if full_name.split('.')[-1] == 'jpg' or full_name.split('.')[-1] == 'JPG':
+                files_arr.append(full_name)
+    files_arr.sort()
+    return files_arr
+
 class CV_Utils(object):
     def __init__(self,img_path, output_path):
         self.channel=25
@@ -163,11 +174,11 @@ class CV_Utils(object):
         threshold = self.find_best_point(hist_list,hist_diff,hist_ddiff)
         threshold = 103
         average= self.average_lightness(self.img)
-        print(average)
+        # print(average)
         hist_max = self.hist_max(hist_list,hist_diff,hist_ddiff)
-        print(hist_max)
+        # print(hist_max)
         threshold = self.find_best_point2(hist_max, average)
-        print(threshold)
+        # print(threshold)
         gray_img = self.img
         _,bin_img= cv2.threshold(gray_img,threshold,255,cv2.THRESH_BINARY)
         # cv2.imshow("histImgB", histImgB)    
@@ -187,6 +198,7 @@ class CV_Utils(object):
             cv2.waitKey(0)    
             cv2.destroyAllWindows()   
         else:
+            print(self.file_name)
             cv2.imwrite(ops.join(self.output_path,self.file_name),bin_img)
 
 if __name__ == '__main__':

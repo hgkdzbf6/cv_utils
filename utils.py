@@ -3,6 +3,12 @@ import os.path as ops
 import cv2
 import numpy as np
 
+'''
+本文件当中存放图像处理常用工具。
+我会尽量在中间增加说明的。
+这个文件当中存储一些静态方法。
+'''
+
 def init_file(img_path):
     files = os.listdir(img_path)
     files_arr=[]

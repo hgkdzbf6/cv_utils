@@ -1,0 +1,39 @@
+---
+
+- readIn:
+    mode: 0                   # 图像模式
+    save: true                # 保存吗？    
+    output_label: 'hello'     # 保存成一个另外的标签
+    verbose: true             # 显示处理结果
+
+- print:
+    input_label: 'hello'
+    mode: 'shape'
+    verbose: true
+
+- threshold:
+    input_label: 'hello'
+    val: 70
+    save: true
+    output_label: 'threshold'
+    verbose: true
+
+- drawColorHist:
+    input_label: 'hello'
+    channel: 25
+    threshold: 50
+    smooth: true
+    smooth_param: 10
+    output_label: 'hist'
+    verbose: true
+    
+- writeOut:
+    input_label: 'hello'
+    path: './imgs'
+    verbose: true
+        
+- writeOut:
+    input_label: 'hist'
+    suffix: '_hist'
+    path: './imgs'
+    verbose: true

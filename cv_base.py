@@ -10,6 +10,7 @@ import sys
 import matplotlib.pyplot as plt
 import math
 from utils import *
+from tree import Tree
 
 
 '''
@@ -107,7 +108,7 @@ class CVBase(object):
         label = get(params, 'output_label', 'img'+str(self.index))
         self.labels[self.index][label] = pic
         if test(params, 'verbose', True):
-            other = '叫做%s的图片读入了，'%(self.basename,)
+            other = '操作为%s，叫做%s的图片读入了，'%(sys._getframe().f_code.co_name,self.basename,)
             res = self._base_verbose(params,other)
             dump(res)
 
@@ -117,7 +118,9 @@ class CVBase(object):
                 label_name = get(params, 'input_label', 'hello')
                 test_pic = self.labels[self.index][label_name]
                 if test(params, 'verbose', True):
-                    dump('第%d张图片，标签为%s的这张图片的高是%s，宽是%s。'%(self.index, label_name, test_pic.shape[0],test_pic.shape[1]))
+                    other = '操作为%s，这张图片的高是%d，宽是%d,' % (sys._getframe().f_code.co_name, test_pic.shape[0],test_pic.shape[1])
+                    res = self._base_verbose(params,other)
+                    dump(res)
                 else:
                     dump(self.labels[self.index][label_name].shape)
 
@@ -203,19 +206,22 @@ class CVBase(object):
         histImg = np.zeros([256,256,3], np.uint8)
         hist_list = []
         color = (255,255,255)
+        channel = get(params,'channel')
         smooth = get(params, 'smooth')
         threshold = get(params, 'threshold')
         smooth_param = get(params, 'smooth_param',10)
         if exist(params, 'input_label'):
             label_name = get(params, 'input_label', 'hello')
             test_pic = self.labels[self.index][label_name]
-        hist = cv2.calcHist([test_pic], [0], None, [256], [0.0,255.0])
+        hist = cv2.calcHist([test_pic], [0], None, [channel], [0.0,255.0])
         _ , maxVal, _ , _ = cv2.minMaxLoc(hist)  
         hpt = int(0.9* 256)  
-        for h in range(256):    
-            intensity = int(hist[h]*hpt/maxVal) 
-            hist_list.append(intensity)
-            cv2.line(histImg,(h,256), (h,256-intensity), color)    
+        for h in range(channel):    
+            width = int(256.0/channel)
+            height = int(hist[h]*hpt/maxVal) 
+            hist_list.append(height)
+            cv2.rectangle(histImg,(h*width,256-height), (h*width+width,256), color,1)    
+            # cv2.rectangle(histImg,(),())
         if threshold > 0 :
             cv2.line(histImg,(threshold,256), (threshold,0), [255,255,0]) 
         self.hists[self.index][label_name] = hist_list
@@ -227,8 +233,10 @@ class CVBase(object):
                 for j in range(-smooth_param,smooth_param+1):
                     sum=sum+self.hists[self.index][label_name][i+j]
                 temp[i]=sum/2.0/smooth_param
-            for h in range(256):    
-                cv2.line(histImg,(h,256), (h,int(256-temp[h])), color)   
+            for h in range(channel):    
+                width = int(256.0/channel)
+                height = int(temp[h]*hpt/maxVal) 
+                cv2.rectangle(histImg,(h*width,256-height), (h*width+width,256), color,1)    
         if exist(params, 'output_label'):
             output_name = get(params, 'output_label', 'hello')
             self.labels[self.index][output_name] = histImg
@@ -376,6 +384,177 @@ class CVBase(object):
             dump(res,'hyk')
 
     '''
+    把一个图片复制成另一个名称
+    '''
+    def _copy(self,params):
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        output_img = input_img
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,'hyk')
+
+    '''
+    把一个图片复制成另一个名称
+    '''
+    def _copy(self,params):
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        output_img = input_img
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,'hyk')
+
+
+    '''
+    把一个图片复制成另一个名称
+    '''
+    def _blur(self,params):
+        mode= get(params,'mode','normal')
+        kernel_size = get(params,'kernel_size', 3)
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        if mode == 'normal':
+            output_img = cv2.blur(input_img,kernel_size)
+        elif mode == 'median':
+            output_img = cv2.medianBlur(input_img,kernel_size)  
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,'hyk')
+
+    '''
+    使用滤镜
+    '''
+    def _filter(self,params):
+        kernel_type = get(params, 'kernel_type', 'gaussian')
+        kernel_size = get(params, 'kernel_size', 3)
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        # output_img = cv2.filter2D()
+        output_img = input_img
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,'hyk')
+
+    '''
+    一些数学操作
+    '''
+    def _math(self,params):
+        ##############################
+        # TODO 这里填写输入参数
+        mode = get(params,'mode', 'linear')
+        bias = get(params,'bias', 0)
+        weight = get(params, 'weight',1)
+        power = get(params,'power',1)
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        if mode=='linear':
+            output_img = input_img * weight + bias
+        elif mode=='exp':
+            output_img = input_img ** power
+        # max_val = np.max(output_img)
+        # output_img = output_img * 1000 / max_val
+        output_img = output_img.astype(np.uint8)
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,'hyk')
+
+
+    def _bilateral(self,params):
+        d=get(params,'d',0)
+        sigma_color=get(params,'sigma_color',100)
+        sigma_space=get(params,'sigma_space',15)
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        output_img = cv2.bilateralFilter(input_img, d=d,sigmaColor = sigma_color, sigmaSpace = sigma_space)
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,'hyk')
+            
+
+    def _build_graph(self):
+        pass
+
+    '''
     更新这个图片集合
     '''
     def update(self):
@@ -385,9 +564,16 @@ class CVBase(object):
         # dump(methods[0]['readIn'])
         # methods: list
         # method: dict
+        self.tree = Tree()
+        self.tree.add('hello','')
         for method in methods:  
             for key,val in method.items():
+                input_label = get(val,'input_label','')
+                output_label = get(val,'output_label','')
+                if output_label != '' and input_label != '':
+                    self.tree.add(output_label,input_label)
                 getattr(self,'_'+key)(val)
+        self.tree.dump()
 
     '''
     入口函数，开始运行这个函数

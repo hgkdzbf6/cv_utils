@@ -124,7 +124,6 @@
 - `mode`: 一个是`height`，一个是`width`。我们以`width`作为宽的哪一部分，`height`作为短的哪一部分。
 
 ```yaml
-
 - drawContour:
     input_label:    'hello'
     max_length:     1000
@@ -136,5 +135,8 @@
     mode:           'height' # 另一个是'height'
     output_label:   'contour'
     verbose:        true
-    
 ```
+
+### copy
+
+没啥好说的，就是吧input_label的图片复制到output_label当中，可以作为其他的模板。

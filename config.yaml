@@ -12,6 +12,40 @@
     mode: 'shape'
     verbose: true
 
+- math:
+    input_label: 'hello'
+    mode: 'exp'
+    power: 2.5
+    output_label: 'math'
+    verbose: true
+
+- writeOut:
+    input_label: 'math'
+    suffix: '_math'
+    path: './imgs'
+    verbose: true
+    
+- blur:
+    input_label: 'math'
+    mode: 'median'
+    kernel_size: 5
+    output_label: 'blur'
+    verbose: true
+
+- bilateral:
+    input_label: 'blur'
+    d: 0
+    sigma_color: 20
+    sigma_space: 5
+    output_label: 'bilateral'
+    verbose: true
+
+- writeOut:
+    input_label: 'bilateral'
+    suffix: '_bi'
+    path: './imgs'
+    verbose: true
+
 - threshold:
     input_label: 'hello'
     val: 70
@@ -35,11 +69,11 @@
     output_label: 'morphology'
 
 - drawColorHist:
-    input_label: 'hello'
-    channel: 25
+    input_label: 'bilateral'
+    channel: 120
     threshold: 50
     smooth: true
-    smooth_param: 10
+    smooth_param: 5
     output_label: 'hist'
     verbose: true
 
@@ -50,7 +84,7 @@
     verbose: true
 
 - drawContour:
-    input_label:    'hello'
+    input_label:    'bilateral'
     max_length:     1000
     min_length:     7
     min_one_size:   45

@@ -104,13 +104,12 @@ class CVBase(object):
             pic = new_img
         else:
             pic = cv2.imread(self.file, flags=mode)
-        if get(params,'save',True):
-            label = get(params, 'output_label', 'img'+str(self.index))
-            self.labels[self.index][label] = pic
-            if test(params, 'verbose', True):
-                other = '叫做%s的图片读入了，'%(self.basename,)
-                res = self._base_verbose(params,other)
-                dump(res)
+        label = get(params, 'output_label', 'img'+str(self.index))
+        self.labels[self.index][label] = pic
+        if test(params, 'verbose', True):
+            other = '叫做%s的图片读入了，'%(self.basename,)
+            res = self._base_verbose(params,other)
+            dump(res)
 
     def _print(self, params):
         if test(params, 'mode', 'shape'):
@@ -128,10 +127,9 @@ class CVBase(object):
         origin_pic = self.labels[self.index][input_name]
         val = get(params,'val',1)
         ret,pic = cv2.threshold(origin_pic,val,255, cv2.THRESH_BINARY)
-        if params['save']==True:
-            if exist(params, 'output_label'):
-                label_name = get(params, 'output_label', 'hello')
-                self.labels[self.index][label_name] = pic
+        if exist(params, 'output_label'):
+            label_name = get(params, 'output_label', 'hello')
+            self.labels[self.index][label_name] = pic
         if test(params, 'verbose', True):
             other = '门限参数为%d，' % (val,)
             res = self._base_verbose(params,other)
@@ -158,7 +156,7 @@ class CVBase(object):
         out_name = ops.join(path, filename)
         cv2.imwrite(out_name,self.labels[self.index][label_name])
         if test(params, 'verbose', True):
-            other = '操作为%s，保存路径为%s，' % (sys._getframe().f_code.co_name,out_name,)
+            other = '操作为%s，保存文件名为%s，' % (sys._getframe().f_code.co_name,filename,)
             res = self._base_verbose(params,other)
             dump(res)
 
@@ -375,7 +373,7 @@ class CVBase(object):
         if test(params, 'verbose',True):
             other = '操作为%s，统计个数为%d，' % (sys._getframe().f_code.co_name,count)
             res = self._base_verbose(params,other)
-            dump(res,'blink')
+            dump(res,'hyk')
 
     '''
     更新这个图片集合
@@ -407,5 +405,5 @@ class CVBase(object):
             self.index+=1
 
 if __name__ == "__main__":
-    hello = CVBase('./pics','./config.yaml')
+    hello = CVBase('./pics2','./config.yaml')
     hello.run()

@@ -3,8 +3,7 @@
 - readIn:
     mode: 0                   # 图像模式
     type: 'jpg'               # 主要看是不是raw文件
-    raw_size: 3072
-    save: true                # 保存吗？    
+    raw_size: 3072 
     output_label: 'hello'     # 保存成一个另外的标签
     verbose: true             # 显示处理结果
 
@@ -16,7 +15,6 @@
 - threshold:
     input_label: 'hello'
     val: 70
-    save: true
     output_label: 'threshold'
     verbose: true
 

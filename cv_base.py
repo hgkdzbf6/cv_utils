@@ -4,33 +4,13 @@ import os.path as ops
 import cv2
 import numpy as np
 import yaml
+import rawpy
+from PIL import Image
 import sys
+import matplotlib.pyplot as plt
+import math
+from utils import *
 
-'''
-得到params当中的参数
-'''
-def get(params, val, default = ''):
-    if val in params:
-        return params[val]
-    else:
-        return default
-'''
-测试val的值是不是test_val
-'''
-def test(params, val, test_val):
-    if val in params:
-        return params[val] == test_val
-    else:
-        return False
-
-'''
-测试val的值是不是test_val
-'''
-def exist(params, val):
-    if val in params:
-        return True
-    else:
-        return False
 
 '''
 本文件当中存放图像处理常用工具。
@@ -64,7 +44,7 @@ class CVBase(object):
     def parse(self, filename):
         f = open(filename, 'r')
         self.methods = yaml.load(f, Loader=yaml.FullLoader)
-        # print(self.methods)
+        dump(self.methods)
 
     @staticmethod
     def get_param(params, val, default):
@@ -83,7 +63,7 @@ class CVBase(object):
         files = os.listdir(filename)
         files_arr=[]
         dirname = ops.abspath(filename)
-        # print(dirname)
+        # dump(dirname)
         for file_name in files:
             full_name = ops.join(dirname,file_name)
             if ops.isfile(full_name):
@@ -91,14 +71,6 @@ class CVBase(object):
                     files_arr.append(full_name)
         files_arr.sort()
         return files_arr
-
-    '''
-    把路径变成图片
-    '''
-    @staticmethod
-    def readIn(file, mode = -1):
-        img = cv2.imread(file,mode)
-        return img
 
     def _base_verbose(self,params,other):
         res = ''
@@ -114,14 +86,31 @@ class CVBase(object):
 
     def _readIn(self, params):
         mode = get(params,'mode', -1)
-        pic = CVBase.readIn(self.file, mode=mode)
+        raw_size = get(params, 'raw_size', 3072)
+        if test(params, 'type' ,'raw'):
+            image_data =  open(self.file,'rb').read()
+            im = Image.frombytes('L',(raw_size,raw_size*2),image_data,'raw')
+            np_im = np.array(im)
+            new_im = np_im[::2,:]
+            new_im_2 = np_im[1::2,:]
+            dump(new_im.shape)
+            img = Image.fromarray(new_im.astype('uint8'))
+            img = img.resize((raw_size/2,raw_size), Image.BOX)
+            img2 = Image.fromarray(new_im_2.astype('uint8'))
+            img2 = img2.resize((raw_size/2,raw_size), Image.BOX)
+            new_img = Image.new('L',(raw_size,raw_size))
+            new_img.paste(img, (0,0))
+            new_img.paste(img2, (raw_size/2,0))
+            pic = new_img
+        else:
+            pic = cv2.imread(self.file, flags=mode)
         if get(params,'save',True):
             label = get(params, 'output_label', 'img'+str(self.index))
             self.labels[self.index][label] = pic
             if test(params, 'verbose', True):
                 other = '叫做%s的图片读入了，'%(self.basename,)
                 res = self._base_verbose(params,other)
-                print(res)
+                dump(res)
 
     def _print(self, params):
         if test(params, 'mode', 'shape'):
@@ -129,9 +118,9 @@ class CVBase(object):
                 label_name = get(params, 'input_label', 'hello')
                 test_pic = self.labels[self.index][label_name]
                 if test(params, 'verbose', True):
-                    print('第%d张图片，标签为%s的这张图片的高是%s，宽是%s。'%(self.index, label_name, test_pic.shape[0],test_pic.shape[1]))
+                    dump('第%d张图片，标签为%s的这张图片的高是%s，宽是%s。'%(self.index, label_name, test_pic.shape[0],test_pic.shape[1]))
                 else:
-                    print(self.labels[self.index][label_name].shape)
+                    dump(self.labels[self.index][label_name].shape)
 
     def _threshold(self, params):
         if exist(params, 'input_label'):
@@ -146,7 +135,7 @@ class CVBase(object):
         if test(params, 'verbose', True):
             other = '门限参数为%d，' % (val,)
             res = self._base_verbose(params,other)
-            print(res)
+            dump(res)
     
     '''
     输出图像
@@ -171,10 +160,43 @@ class CVBase(object):
         if test(params, 'verbose', True):
             other = '操作为%s，保存路径为%s，' % (sys._getframe().f_code.co_name,out_name,)
             res = self._base_verbose(params,other)
-            print(res)
+            dump(res)
 
     def _writeFile(self, params):
         pass
+
+    def _morphology(self,params):
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        kernel_size = get(params, 'kernel_size',5)
+        method = get(params, 'method',5)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(kernel_size,kernel_size))
+        for item in params['run']:
+            erode_time = get(item,'erode_time',1)
+            dilate_time = get(item,'dilate_time',1)
+            times = get(item,'times',1)
+            temp = input_img
+            res = get(item, 'res', 0)
+            for i in range(times):
+                erode = cv2.dilate(temp, kernel, iterations = erode_time)
+                dilate = cv2.erode(temp, kernel, iterations = dilate_time)
+                if res == 0:
+                    temp = erode - dilate
+                elif res == 1:
+                    temp = dilate - erode
+                elif res == 2:
+                    temp = erode + dilate
+                elif res == 3:
+                    temp = - erode - dilate
+        output_img = temp
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        if test(params, 'verbose',True):
+            other = '操作为%s，形态学核大小为%d，' % (sys._getframe().f_code.co_name,kernel_size)
+            res = self._base_verbose(params,other)
+            dump(res)
 
     '''
     画颜色直方图，这个一般是黑白图，注意二值图不行，一般是拿这个结果，找到二值图的阈值的。
@@ -215,7 +237,145 @@ class CVBase(object):
         if test(params, 'verbose',True):
             other = '操作为%s，光滑开关为%d，门限为%d，光滑参数为%d，' % (sys._getframe().f_code.co_name,smooth,threshold, smooth_param)
             res = self._base_verbose(params,other)
-            print(res)
+            dump(res)
+
+    def _drawContour(self, params):
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+
+        # 读入参数
+        max_length = get(params,'max_length', 1000) 
+        min_length = get(params, 'min_length',7)
+        min_one_size = get(params,'min_one_size',45)
+        one_size = get(params,'one_size',100)
+        more_size = get(params,'more_size',1000)
+        circle_size = get(params,'circle_size',50000)
+        # 找轮廓
+        contours, hierarchy = cv2.findContours(input_img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)  
+        the_res = input_img.copy()
+        the_res = cv2.cvtColor(the_res,cv2.COLOR_GRAY2BGR)
+        # 找到中心点
+        center = list(the_res.shape)
+        center[0]/=2
+        center[1]/=2
+        red_contours = []
+
+        def cross(m1,m2):
+            return float(m1[0]*m2[1] - m1[1]*m2[0])
+
+        def vec(p1,p2):
+            return [float(p1[0])/100.-float(p2[0])/100., float(p1[1])/100.-float(p2[1])/100.]
+
+        def inBox(box, point):
+            A = list(box[0])
+            B = list(box[1])
+            C = list(box[2])
+            D = list(box[3])
+            P = point
+            AP = vec(A,P)
+            AB = vec(A,B)
+            CD = vec(C,D)
+            CA = vec(C,A)
+            ABP = cross(AB,AP)
+            CDA = cross(CD,CA)
+            one = ABP*CDA
+            two = cross(vec(B,C),vec(B,P))*cross(vec(D,A),vec(D,P))
+            return (one>0 and two>0)
+        
+        # 第一次循环，找到圆心
+        for contour in contours:
+            rect = cv2.minAreaRect(contour)
+            # 检验宽度和高度，如果小于10或者大于1000的话跳过
+            if rect[1][0] >max_length or rect[1][1]> max_length or rect[1][0] < min_length or rect[1][1] <min_length:
+                continue
+            # 检验面积
+            area=rect[1][0]*rect[1][1]
+            box = cv2.boxPoints(rect)
+            if area > circle_size and inBox(box, center):
+                center_contour = contour
+                break
+        
+        # 找到中心的x和y坐标
+        center_rect = cv2.fitEllipse(center_contour)
+
+        # 第二次循环，找到red
+        rects = []
+        for contour in contours:
+            rect = cv2.minAreaRect(contour)
+            # 检验宽度和高度，如果小于10或者大于1000的话跳过
+            if rect[1][0] >max_length or rect[1][1]> max_length or rect[1][0] < min_length or rect[1][1] <min_length:
+                continue
+            # 检验面积
+            area=rect[1][0]*rect[1][1]
+            if area < min_one_size:             # 细小的轮廓跳过
+                continue
+            # 和中心圆盘一样的话跳过
+            # if contour.all() == center_contour.all():
+            #     continue
+            # elif area < more_size:     # 有可能是1个的
+            #     green_contours.append(contour)
+            #     continue
+
+            # 宽度比高度大
+            if rect[1][1]>rect[1][0]:
+                w,h = rect[1][1],rect[1][0]
+            else:
+                w,h = rect[1][0],rect[1][1]
+            rects.append([w,h])
+            # 其他就是红色的
+            box = cv2.boxPoints(rect)
+            red_contours.append(contour)
+        
+        rects = np.array(rects)
+        print(rects.shape)
+        rects = rects[np.lexsort(rects[:,::-1].T)]
+        mean_length = np.mean(rects[:10,:],axis = 0)
+        print(mean_length)
+        # 找到距离
+        font=cv2.FONT_HERSHEY_SIMPLEX
+        count = 0
+        # 开始画
+        for contour in red_contours:
+            min_dist = 80000
+            max_dist = 0
+            for point in contour:
+                point = point.tolist()[0]
+                # dump(point[0],center_rect[0])
+                ex = center_rect[0][0] - point[0]
+                ey = center_rect[0][1] - point[1]
+                dist = math.sqrt(ex**2+ey**2)
+                if dist>max_dist:
+                    max_dist = dist
+                if min_dist>dist:
+                    min_dist = dist
+            err = max_dist - min_dist
+            if test(params,'mode','width'):
+                val = mean_length[0]
+            elif test(params,'mode','height'):
+                val = mean_length[1]
+            predict_num = int(np.round(err / val))
+            if predict_num == 1:
+                color = (0.0,255.0,0.0)
+            else:
+                color = (0.0,0.0,255.0)
+            linewidth = 1
+            rect = cv2.minAreaRect(contour)
+            box = cv2.boxPoints(rect)
+            for i in range(4):
+                cv2.line(the_res,tuple(box[i]), tuple(box[(i+1)%4]), color, linewidth) # 画线
+            cv2.putText(the_res,str(predict_num),(int(rect[0][0]),int(rect[0][1])), font, 1,color,1)
+            count+=predict_num
+        output_img = the_res.copy()
+        # 得到了最近距离和最远距离
+
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        if test(params, 'verbose',True):
+            other = '操作为%s，统计个数为%d，' % (sys._getframe().f_code.co_name,count)
+            res = self._base_verbose(params,other)
+            dump(res,'blink')
 
     '''
     更新这个图片集合
@@ -224,7 +384,7 @@ class CVBase(object):
         methods = self.methods.copy()
         self.labels.append({})
         self.hists.append({})
-        # print(methods[0]['readIn'])
+        # dump(methods[0]['readIn'])
         # methods: list
         # method: dict
         for method in methods:  
@@ -241,10 +401,11 @@ class CVBase(object):
         for file in files:
             self.file = file
             self.basename = os.path.basename(file)
+            if self.basename.split('.')[-1] =='DS_Store':
+                continue
             self.update()
             self.index+=1
 
-    
 if __name__ == "__main__":
     hello = CVBase('./pics','./config.yaml')
     hello.run()

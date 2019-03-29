@@ -101,7 +101,7 @@
 
 - toPolar:
     input_label: 'hello'
-    shake_times: 5
+    shake_times: 2
     param_in:
         center: 'center'
     output_label: 'polar'
@@ -112,7 +112,31 @@
     kernel_size: 1
     output_label: 'blur2'
     verbose: true
-    
+
+
+- drawColorHist:
+    input_label: 'blur2'
+    channel: 120
+    threshold: 50
+    smooth: true
+    smooth_param: 5
+    output_label: 'hist2'
+    param_out: 'hist2'
+    verbose: true
+
+- writeOut:
+    input_label: 'hist2'
+    path: './imgs'  
+    suffix: '_hist2'
+    verbose: true
+
+# - filter:
+#     input_label: 'blur2'
+#     kernel_type: 'scharr'
+#     kernel_size: 1
+#     output_label: 'filtered'
+#     verbose: true
+
 - writeOut:
     input_label: 'blur2'
     path: './imgs'  

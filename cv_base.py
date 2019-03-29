@@ -441,13 +441,29 @@ class CVBase(object):
         norm_y = np.tile(y.reshape(1,-1),(x.shape[0],1)).reshape(-1)
 
         new_pic = np.zeros( (np.max(norm_dist) +1, np.max(norm_angle) +1))
-        # new_pic = np.ones( (np.max(norm_dist) +1, np.max(norm_angle) +1))*255
-        print(new_pic.shape)
+        # new_pic = np.ones( (np.max(norm_dist) +1, np.max(norm_angle) +1))*(-1)
+        # 实际的转化就这一步
         new_pic[norm_dist,norm_angle] = input_img[norm_x,norm_y]
-        for i in range(shake_times):
-            new_pic[1:,:] = np.maximum(new_pic[1:,:] , new_pic[:-1,:])
-            new_pic[:,1:] = np.maximum(new_pic[:,1:] , new_pic[:,:-1])
-        output_img = new_pic.astype(np.uint8)
+
+        # 调整扇形位置
+        # not_change = np.where(new_pic==-1)
+        # mask = np.zeros_like(new_pic)
+        # mask[not_change] = 1
+        # one_mask = np.argsort(mask,axis=1,kind='mergesort').reshape(-1)
+        # new_img = np.zeros_like(new_pic)
+
+        # x = np.arange(new_img.shape[0])
+        # y = np.arange(new_img.shape[1])
+        # new_x = np.tile(x.reshape(-1,1),(1,y.shape[0])).reshape(-1)
+        # new_y = np.tile(y.reshape(1,-1),(x.shape[0],1)).reshape(-1)
+
+        # new_img[new_x,new_y] = new_pic[new_x,one_mask]
+        new_img = new_pic
+
+        for _ in range(shake_times):
+            new_img[1:,:] = np.maximum(new_img[1:,:] , new_img[:-1,:])
+            new_img[:,1:] = np.maximum(new_img[:,1:] , new_img[:,:-1])
+        output_img = new_img.astype(np.uint8)
         ##############################
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
@@ -529,8 +545,12 @@ class CVBase(object):
             input_img = self.labels[self.index][input_label]
         ##############################
         # TODO 这里填写具体操作
-        # output_img = cv2.filter2D()
-        output_img = input_img
+        if kernel_type == 'scharr':
+            kernel_x = np.array([[-3,0,3],[-10,0,10],[-3,0,3]])
+            kernel_y = np.array([[-3,-10,-3],[0,0,0],[3,10,3]])
+            output_img = cv2.filter2D(input_img,ddepth=0,kernel = kernel_x)
+            output_img = cv2.filter2D(output_img,ddepth=0,kernel = kernel_y)
+            # output_img = input_img
         ##############################
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
@@ -577,7 +597,6 @@ class CVBase(object):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
             dump(res,'hyk')
-
 
     def _bilateral(self,params):
         d=get(params,'d',0)

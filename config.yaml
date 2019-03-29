@@ -94,6 +94,9 @@
     circle_size:    50000
     mode:           'height' # 另一个是'height'
     output_label:   'contour'
+    param_out: 
+        count: 'count'
+        center: 'center'
     verbose:        true
     
 - writeOut:
@@ -114,4 +117,7 @@
     verbose: true
 
 - tree:
+    hello: 'world'
+
+- dump_params:
     hello: 'world'

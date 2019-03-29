@@ -277,6 +277,7 @@ class CVBase(object):
         one_size = get(params,'one_size',100)
         more_size = get(params,'more_size',1000)
         circle_size = get(params,'circle_size',50000)
+        param_out = get(params,'param_out',{})
         # 找轮廓
         contours, hierarchy = cv2.findContours(input_img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)  
         the_res = input_img.copy()
@@ -324,6 +325,8 @@ class CVBase(object):
         
         # 找到中心的x和y坐标
         center_rect = cv2.fitEllipse(center_contour)
+        # (x,y), (w,h), angle
+        self.params[self.index][param_out['center']] = center_rect
 
         # 第二次循环，找到red
         rects = []
@@ -394,6 +397,7 @@ class CVBase(object):
             count+=predict_num
         output_img = the_res.copy()
         # 得到了最近距离和最远距离
+        self.params[self.index][param_out['count']] = count
 
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
@@ -570,6 +574,8 @@ class CVBase(object):
             res = self._base_verbose(params,other)
             dump(res,'hyk')
             
+    def _dump_params(self,params):
+        dump_simple(self.params[0])
 
     def _build_graph(self):
         pass

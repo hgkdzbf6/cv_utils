@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 '''
 这个是一些常用的静态方法，先写在这里
 '''
@@ -106,6 +107,55 @@ def dump(value, *kwargs, abbr='0gk', display = 'normal', color = 'red' ,backcolo
     for arg in kwargs:
         print(arg,sep=sep,end='',file=file,flush=flush)
     print(clean,end=end)
+
+def _is_container(value):
+    if isinstance(value,list) or isinstance(value,tuple):
+        return 1
+    elif isinstance(value,np.ndarray):
+        return 2
+    elif isinstance(value,dict):
+        return 3
+    return 0
+
+def dump_list(value):
+    if len(value)>10:
+        dump('长度为：',len(value),sep='',end='')
+    else:
+        dump(value,sep='',end='')
+
+def dump_dict(value):
+    for key,value in value.items():
+        dump_simple(key,': ',value,sep='',end='')
+        dump('')
+        # dump(key,':',value)
+
+def dump_np(value):
+    if max(value.shape) > 10:
+        dump('大小为',value.shape,sep='',end='')
+    else:
+        dump(value,sep='',end='')
+
+def dump_simple(value, *kwargs,sep = '',end=''):
+    v = _is_container(value)
+    if v==1:
+        dump_list(value)
+    elif v==2:
+        dump_np(value)
+    elif v==3:
+        dump_dict(value)
+    else:
+        dump(value,sep=sep,end='')
+
+    for item in kwargs:
+        v = _is_container(item)
+        if v==1:
+            dump_list(item)
+        elif v==2:
+            dump_np(item)
+        elif v==3:
+            dump_dict(item)
+        else:
+            dump(item,sep=sep,end='')
 
 if __name__ == "__main__":
     dump('hello world')

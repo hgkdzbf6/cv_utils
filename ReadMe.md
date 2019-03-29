@@ -16,9 +16,9 @@
 
 ### 主要关键字用法：
 
-- input_label:    输入文件的标签
-- output_label：  输出文件的标签
-- verbose：       显示处理信息。
+- `input_label`:    输入文件的标签
+- `output_label`：  输出文件的标签
+- `verbose`：       显示处理信息。
 
 ### readIn
 
@@ -88,6 +88,7 @@
 - `threshold`: 在这个值的范围上加一个竖线qwq虽然没啥卵用
 - `smooth`: 平滑
 - `smooth_param:` 平滑参数
+- `param_out`: 输出参数，这里是`hist`
 
 ```yaml
 - drawColorHist:
@@ -139,4 +140,38 @@
 
 ### copy
 
-没啥好说的，就是吧input_label的图片复制到output_label当中，可以作为其他的模板。
+没啥好说的，就是吧`input_label`的图片复制到`output_label`当中，可以作为其他的模板。
+
+### blur
+
+- `mode`: 有这么几种方式
+  - `normal` 调用cv.blur
+  - `median` 中值滤波
+- `kernel_size`: 滤波核的大小
+
+```yaml
+- blur:
+    input_label: 'math'
+    mode: 'median'
+    kernel_size: 5
+    output_label: 'blur'
+    verbose: true
+```
+
+### bilateral
+
+双边滤波
+
+- `d`
+- `sigma_color`
+- `sigma_space`
+
+```yaml
+- bilateral:
+    input_label: 'blur'
+    d: 0
+    sigma_color: 20
+    sigma_space: 5
+    output_label: 'bilateral'
+    verbose: true
+```

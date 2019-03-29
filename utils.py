@@ -1,3 +1,4 @@
+import sys
 '''
 这个是一些常用的静态方法，先写在这里
 '''
@@ -32,8 +33,7 @@ def exist(params, val):
 '''
 更加漂亮的输出
 '''
-def dump(value, abbr='0gk', display = 'normal', color = 'red' ,backcolor = 'black'):
-
+def dump(value, *kwargs, abbr='0gk', display = 'normal', color = 'red' ,backcolor = 'black', sep=' ', end='\n', file=sys.stdout, flush=False):
     color_dict = {
         'black':30,
         'red':31,
@@ -101,7 +101,11 @@ def dump(value, abbr='0gk', display = 'normal', color = 'red' ,backcolor = 'blac
         
     cmd = '\033[' +display_cmd + ';'+ color_cmd +';'+ backcolor_cmd + 'm'
     clean = '\033[0m'
-    print(cmd,value,clean,sep='')
+    print(cmd,end='')
+    print(value,sep=sep,end='',file=file,flush=flush)
+    for arg in kwargs:
+        print(arg,sep=sep,end='',file=file,flush=flush)
+    print(clean,end=end)
 
 if __name__ == "__main__":
     dump('hello world')

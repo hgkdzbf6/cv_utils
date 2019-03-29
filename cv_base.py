@@ -30,14 +30,32 @@ class CVBase(object):
     构造函数，基本没啥用吧qwq，因为传递的东西都是图片。
     '''
     def __init__(self, filename, config):
+        '''
+        处理的标签序号
+        '''
         self.index = 0
+        '''
+        正在执行的方法，从yaml文件当中读取
+        '''
         self.methods = []
+        '''
+        有不同标签的图片存放在这里
+        '''
         self.labels = []
+        '''
+        中间结果，有个直方图的结果放在这里
+        '''
         self.hists = []
+        '''
+        正在处理的文件名
+        '''
         self.filename = filename
+        '''
+        配置文件的路径
+        '''
+        self.params = []
         self.config = config
         self.parse(self.config)
-        pass
 
     '''
     从参数文件当中读取一些数据，放在methods里面
@@ -199,6 +217,7 @@ class CVBase(object):
             res = self._base_verbose(params,other)
             dump(res)
 
+
     '''
     画颜色直方图，这个一般是黑白图，注意二值图不行，一般是拿这个结果，找到二值图的阈值的。
     '''
@@ -210,6 +229,7 @@ class CVBase(object):
         smooth = get(params, 'smooth')
         threshold = get(params, 'threshold')
         smooth_param = get(params, 'smooth_param',10)
+        param_out = get(params, 'param_out','hist')
         if exist(params, 'input_label'):
             label_name = get(params, 'input_label', 'hello')
             test_pic = self.labels[self.index][label_name]
@@ -224,14 +244,14 @@ class CVBase(object):
             # cv2.rectangle(histImg,(),())
         if threshold > 0 :
             cv2.line(histImg,(threshold,256), (threshold,0), [255,255,0]) 
-        self.hists[self.index][label_name] = hist_list
+        self.params[self.index][param_out] = hist_list
 
         if smooth == True:
-            temp=self.hists[self.index][label_name]
+            temp=self.params[self.index][param_out]
             for i in range(smooth_param,len(temp)-smooth_param):
                 sum=0
                 for j in range(-smooth_param,smooth_param+1):
-                    sum=sum+self.hists[self.index][label_name][i+j]
+                    sum=sum+self.params[self.index][param_out][i+j]
                 temp[i]=sum/2.0/smooth_param
             for h in range(channel):    
                 width = int(256.0/channel)
@@ -384,9 +404,9 @@ class CVBase(object):
             dump(res,'hyk')
 
     '''
-    把一个图片复制成另一个名称
+    把笛卡尔坐标系变成极坐标系
     '''
-    def _copy(self,params):
+    def _toPolar(self,params):
         ##############################
         # TODO 这里填写输入参数
         ##############################
@@ -558,21 +578,28 @@ class CVBase(object):
     更新这个图片集合
     '''
     def update(self):
-        methods = self.methods.copy()
-        self.labels.append({})
-        self.hists.append({})
+        # methods = self.methods.copy()
         # dump(methods[0]['readIn'])
         # methods: list
         # method: dict
         self.tree = Tree()
         self.tree.add('hello','')
-        for method in methods:  
+        for method in self.methods:  
             for key,val in method.items():
                 input_label = get(val,'input_label','')
                 output_label = get(val,'output_label','')
                 if output_label != '' and input_label != '':
                     self.tree.add(output_label,input_label)
+                elif output_label =='':
+                    # 表示只有输入，也就是这个是writeOut
+                    self.tree.color(input_label,'green')
+                elif input_label == '':
+                    # 只有输出的话，那应该就是第一个节点了
+                    self.tree.color(output_label,'red')
                 getattr(self,'_'+key)(val)
+        print(self.tree.colors)
+
+    def _tree(self,param):
         self.tree.dump()
 
     '''
@@ -582,6 +609,8 @@ class CVBase(object):
         if filename==None:
             filename = self.filename
         files = CVBase.read_files(filename)
+        self.labels = [{}]*len(files)
+        self.params = [{}]*len(files)
         for file in files:
             self.file = file
             self.basename = os.path.basename(file)

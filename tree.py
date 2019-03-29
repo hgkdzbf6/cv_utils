@@ -1,3 +1,5 @@
+from utils import get, dump
+
 class Forest(object):
     def __init__(self):
         self.dict = {}
@@ -6,6 +8,7 @@ class Tree(object):
     def __init__(self):
         self.root = None
         self.dict = {}
+        self.colors = {}
     
     def add(self,name,parent_name):
         if not parent_name in self.dict:
@@ -22,18 +25,21 @@ class Tree(object):
 
     def find(self, key):
         pass
+    
+    def color(self,key,val):
+        self.colors[key] = val
 
     def dump(self):
         if self.root == None:
             return
         else:
             level = 0
-            start = self.root
-            print(start.name ,sep='')
-            Tree._dump_tree(start,level,[])
+            start = self.root           
+            color = get(self.colors,self.root.name,'yellow')
+            dump(start.name ,sep='',abbr='',color=color)
+            self._dump_tree(start,level,[])
 
-    @staticmethod
-    def _dump_tree(current, level, is_down):
+    def _dump_tree(self, current, level, is_down):
         right_down = '├'
         straight = '─'
         right = '└'
@@ -41,20 +47,21 @@ class Tree(object):
         if current==None:
             return
         for i,item in enumerate(current.children):
+            color = get(self.colors,item.name,'yellow')
             for j in is_down:
                 if j == True:
-                    print('\t',end='')
+                    dump('\t',end='',abbr='',color=color)
                 else:
-                    print(down,end='')
+                    dump(down,end='',abbr='',color=color)
             # 最后一个
             if i == len(current.children) - 1:
-                print(right, straight*7 ,item.name,sep='')
+                dump(right, straight*7 ,item.name,sep='',abbr='',color=color)
                 new_is_down = is_down+[True]
-                Tree._dump_tree(item,level+1,new_is_down)
+                self._dump_tree(item,level+1,new_is_down)
             else:
-                print(right_down, straight*7 ,item.name,sep='')
+                dump(right_down, straight*7 ,item.name,sep='',abbr='',color=color)
                 new_is_down = is_down + [False]
-                Tree._dump_tree(item,level+1,new_is_down)
+                self._dump_tree(item,level+1,new_is_down)
             
 
 class TreeNode(object):

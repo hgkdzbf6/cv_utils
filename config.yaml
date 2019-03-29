@@ -75,6 +75,7 @@
     smooth: true
     smooth_param: 5
     output_label: 'hist'
+    param_out: 'hist'
     verbose: true
 
 - writeOut:
@@ -111,3 +112,6 @@
     suffix: '_m'
     path: './imgs'
     verbose: true
+
+- tree:
+    hello: 'world'

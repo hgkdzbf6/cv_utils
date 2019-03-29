@@ -413,13 +413,41 @@ class CVBase(object):
     def _toPolar(self,params):
         ##############################
         # TODO 这里填写输入参数
+        param_in = get(params,'param_in',{})
+        shake_times = get(params, 'shake_times', 0)
         ##############################
         if exist(params, 'input_label'):
             input_label = get(params, 'input_label', 'hello')
             input_img = self.labels[self.index][input_label]
         ##############################
         # TODO 这里填写具体操作
-        output_img = input_img
+        center_point = self.params[self.index][param_in['center']]
+        ox,oy = center_point[0]
+        x = np.arange(input_img.shape[0])
+        y = np.arange(input_img.shape[1])
+        ex = x - ox
+        ey = y - oy
+        ex2 = ex**2
+        ey2 = ex**2
+        dist = np.sqrt(ex2.reshape(-1,1) + ey2.reshape(1,-1))
+        angle = np.arctan2(ex.reshape(-1,1),ey.reshape(1,-1))
+        angle_extend = 3072/np.pi 
+        angle = angle * angle_extend
+        
+        norm_dist = dist.astype(np.int16).reshape(-1)
+        norm_angle = angle.astype(np.int16)
+        norm_angle = (norm_angle - np.min(norm_angle)).reshape(-1)
+        norm_x = np.tile(x.reshape(-1,1),(1,y.shape[0])).reshape(-1)
+        norm_y = np.tile(y.reshape(1,-1),(x.shape[0],1)).reshape(-1)
+
+        new_pic = np.zeros( (np.max(norm_dist) +1, np.max(norm_angle) +1))
+        # new_pic = np.ones( (np.max(norm_dist) +1, np.max(norm_angle) +1))*255
+        print(new_pic.shape)
+        new_pic[norm_dist,norm_angle] = input_img[norm_x,norm_y]
+        for i in range(shake_times):
+            new_pic[1:,:] = np.maximum(new_pic[1:,:] , new_pic[:-1,:])
+            new_pic[:,1:] = np.maximum(new_pic[:,1:] , new_pic[:,:-1])
+        output_img = new_pic.astype(np.uint8)
         ##############################
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
@@ -456,7 +484,6 @@ class CVBase(object):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
             dump(res,'hyk')
-
 
     '''
     把一个图片复制成另一个名称

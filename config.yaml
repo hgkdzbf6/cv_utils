@@ -98,10 +98,25 @@
         count: 'count'
         center: 'center'
     verbose:        true
+
+- toPolar:
+    input_label: 'hello'
+    shake_times: 5
+    param_in:
+        center: 'center'
+    output_label: 'polar'
+
+- blur:
+    input_label: 'polar'
+    mode: 'median'
+    kernel_size: 1
+    output_label: 'blur2'
+    verbose: true
     
 - writeOut:
-    input_label: 'hello'
-    path: './imgs'
+    input_label: 'blur2'
+    path: './imgs'  
+    suffix: '_polar'
     verbose: true
 
 - writeOut:

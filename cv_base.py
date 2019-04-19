@@ -7,12 +7,14 @@ import yaml
 import rawpy
 from PIL import Image
 import sys
+print(__file__)
+sys.path.append(ops.dirname(__file__)) 
 import matplotlib.pyplot as plt
 import math
 from utils import *
 from tree import Tree
 
-
+import random
 '''
 本文件当中存放图像处理常用工具。
 我会尽量在中间增加说明的。
@@ -147,6 +149,10 @@ class CVBase(object):
             input_name = get(params, 'input_label', 'hello')
         origin_pic = self.labels[self.index][input_name]
         val = get(params,'val',1)
+        if isinstance(val,int):
+            pass
+        else:
+            val = self.params[self.index][param_out[val]]
         ret,pic = cv2.threshold(origin_pic,val,255, cv2.THRESH_BINARY)
         if exist(params, 'output_label'):
             label_name = get(params, 'output_label', 'hello')
@@ -170,7 +176,9 @@ class CVBase(object):
         if not ops.exists(path):
             os.makedirs(path)
         filename = os.path.basename(self.file)
+        prefix = get(params, 'prefix','')
         suffix = get(params,'suffix')
+        filename = prefix + filename
         t = filename.split('.')
         t[-1] = suffix + '.' + t[-1]
         filename = ''.join(t)
@@ -180,6 +188,63 @@ class CVBase(object):
             other = '操作为%s，保存文件名为%s，' % (sys._getframe().f_code.co_name,filename,)
             res = self._base_verbose(params,other)
             dump(res)
+    
+    def _drawAreaHist(self,params):
+        channel = get(params, 'channel', 30)
+        pic_width = get(params, 'width', 400)
+        pic_height = get(params, 'height', 300)
+        param_in = get(params, 'param_in', {})
+        param_out = get(params, 'param_out', {})
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        areas = self.params[self.index][param_in['areas']]
+        pic = np.zeros([pic_height,pic_width,3], np.uint8)
+        color = (random.randrange(0,255),random.randrange(0,255),random.randrange(0,255))
+        hist_list = np.zeros(channel)
+        minVal = np.min(areas)
+        maxVal = np.max(areas)
+        for i in range(areas.shape[0]):
+            max_err = maxVal - minVal
+            err = areas[i] - minVal
+            index = int(err * (channel-1) / max_err)
+            hist_list[index] += 1
+        
+        areas_range = np.linspace(minVal,maxVal,channel)
+        print('areas_range',areas_range, areas_range.shape)
+        self.params[self.index][param_out['areas_range']] = areas_range
+
+        hist_list = np.array(hist_list)
+        self.params[self.index][param_out['areas_hist']] = hist_list
+        print('hist_list',hist_list, hist_list.shape)
+        maxVal = np.max(hist_list)
+        for h in range(channel):  
+            color = (random.randrange(60,255),random.randrange(60,255),random.randrange(60,255))
+            width = int(pic_width/channel)
+            height = int(hist_list[h]*0.9*pic_height/maxVal)
+            # print((h*width,pic_height-height), (h*width+width,pic_height))
+            cv2.rectangle(pic,(h*width,pic_height-height), (h*width+width,pic_height), color,-1) 
+        
+        one_area = (areas_range[np.argmax(hist_list)] + areas_range[np.argmax(hist_list)+1])/2
+        self.params[self.index][param_out['one_area']] = one_area
+
+        output_img = pic
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
 
     def _writeFile(self, params):
         pass
@@ -187,7 +252,7 @@ class CVBase(object):
     def _morphology(self,params):
         if exist(params, 'input_label'):
             input_label = get(params, 'input_label', 'hello')
-            input_img = self.labels[self.index][input_label]
+            input_img = self.labels[self.index][input_label].copy()
         kernel_size = get(params, 'kernel_size',5)
         method = get(params, 'method',5)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(kernel_size,kernel_size))
@@ -198,8 +263,14 @@ class CVBase(object):
             temp = input_img
             res = get(item, 'res', 0)
             for i in range(times):
-                erode = cv2.dilate(temp, kernel, iterations = erode_time)
-                dilate = cv2.erode(temp, kernel, iterations = dilate_time)
+                if erode_time > 0:
+                    erode = cv2.dilate(temp, kernel, iterations = erode_time)
+                else:
+                    erode = temp
+                if dilate_time > 0:
+                    dilate = cv2.erode(temp, kernel, iterations = dilate_time)
+                else:
+                    dilate = temp
                 if res == 0:
                     temp = erode - dilate
                 elif res == 1:
@@ -208,6 +279,7 @@ class CVBase(object):
                     temp = erode + dilate
                 elif res == 3:
                     temp = - erode - dilate
+            input_img = temp
         output_img = temp
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
@@ -216,6 +288,118 @@ class CVBase(object):
             other = '操作为%s，形态学核大小为%d，' % (sys._getframe().f_code.co_name,kernel_size)
             res = self._base_verbose(params,other)
             dump(res)
+
+    def _getOneArea(self, params):
+        param_out = get(params, 'param_out',{})
+        param_in = get(params, 'param_in',{})       
+        max_length = get(params,'max_length', 1000) 
+        min_length = get(params, 'min_length',7)
+        min_one_size = get(params,'min_one_size',45) 
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        # 找轮廓
+        contours, hierarchy = cv2.findContours(input_img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)  
+        areas = []
+        for contour in contours:
+            rect = cv2.minAreaRect(contour)
+            # 检验宽度和高度，如果小于10或者大于1000的话跳过
+            if rect[1][0] >max_length or rect[1][1]> max_length or rect[1][0] < min_length or rect[1][1] <min_length:
+                continue
+            # 检验面积
+            rect_area=rect[1][0]*rect[1][1]
+            if rect_area < min_one_size:             # 细小的轮廓跳过
+                continue
+
+            area = cv2.contourArea(contour,oriented=True)
+            if area < 0:
+                continue
+            if area > 50000:
+                continue
+
+            # 在这里统计每个轮廓的面积
+            areas.append(area)
+        
+        # areas = np.sort(np.array(areas))
+        areas = np.array(areas)
+        # print(areas)
+        # one_area = np.mean(areas[100:200])
+        # print(one_area, '*********************')
+        self.params[self.index][param_out['areas']] = areas
+        # self.params[self.index][param_out['one_area']] = one_area
+
+        output_img = input_img
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+    
+    def _countByArea(self, params):
+        param_in = get(params, 'param_in')
+        param_out = get(params, 'param_out')
+        max_length = get(params,'max_length', 1000) 
+        min_length = get(params, 'min_length',7)
+        min_one_size = get(params,'min_one_size',45)
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作        
+        contours, hierarchy = cv2.findContours(input_img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        if isinstance(param_in['one_area'],int):
+            one_area = param_in['one_area']
+        else:
+            one_area = self.params[self.index][param_in['one_area']]
+        print(one_area,'*****************')
+        count = 0
+        output_img = input_img.copy()
+        font=cv2.FONT_HERSHEY_SIMPLEX
+        output_img = cv2.cvtColor(input_img,cv2.COLOR_GRAY2BGR)
+        for contour in contours:
+            color = (random.randrange(0,255),random.randrange(0,255),random.randrange(0,255))
+            rect = cv2.minAreaRect(contour)
+            # 检验宽度和高度，如果小于10或者大于1000的话跳过
+            if rect[1][0] >max_length or rect[1][1]> max_length or rect[1][0] < min_length or rect[1][1] <min_length:
+                continue
+            # 检验面积
+            area=rect[1][0]*rect[1][1]
+            if area < min_one_size:             # 细小的轮廓跳过
+                continue
+            area = cv2.contourArea(contour)
+            area_count = int(round(area / one_area))
+            count = count + area_count
+            cv2.drawContours(output_img,[contour],0,color,2)
+            cv2.putText(output_img,str(area_count),(int(rect[0][0]),int(rect[0][1])), font, 1,color,1)
+        
+        self.params[self.index][param_out['area_count']] = count
+        # 这里已经得到了直方图，如何选择one_area
+
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，统计数量为%s，' % (sys._getframe().f_code.co_name,count)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
 
 
     '''
@@ -229,7 +413,7 @@ class CVBase(object):
         smooth = get(params, 'smooth')
         threshold = get(params, 'threshold')
         smooth_param = get(params, 'smooth_param',10)
-        param_out = get(params, 'param_out','hist')
+        param_out = get(params, 'param_out',{})
         if exist(params, 'input_label'):
             label_name = get(params, 'input_label', 'hello')
             test_pic = self.labels[self.index][label_name]
@@ -242,21 +426,25 @@ class CVBase(object):
             hist_list.append(height)
             cv2.rectangle(histImg,(h*width,256-height), (h*width+width,256), color,1)    
             # cv2.rectangle(histImg,(),())
+        
+        median = np.median( np.array(hist_list) )
+        self.params[self.index][param_out['mid_hist']] = median
+        
         if threshold > 0 :
-            cv2.line(histImg,(threshold,256), (threshold,0), [255,255,0]) 
-        self.params[self.index][param_out] = hist_list
+            cv2.line(histImg,( int(round(median)) ,256), ( int(round(median)) ,0), [255,255,0]) 
+        self.params[self.index][param_out['hist']] = hist_list
 
         if smooth == True:
-            temp=self.params[self.index][param_out]
+            temp=self.params[self.index][param_out['hist']]
             for i in range(smooth_param,len(temp)-smooth_param):
                 sum=0
                 for j in range(-smooth_param,smooth_param+1):
-                    sum=sum+self.params[self.index][param_out][i+j]
+                    sum=sum+self.params[self.index][param_out['hist']][i+j]
                 temp[i]=sum/2.0/smooth_param
             for h in range(channel):    
                 width = int(256.0/channel)
                 height = int(temp[h]*hpt/maxVal) 
-                cv2.rectangle(histImg,(h*width,256-height), (h*width+width,256), color,1)    
+                cv2.rectangle(histImg,(h*width,256-height), (h*width+width,256), color,1)  
         if exist(params, 'output_label'):
             output_name = get(params, 'output_label', 'hello')
             self.labels[self.index][output_name] = histImg
@@ -264,52 +452,25 @@ class CVBase(object):
             other = '操作为%s，光滑开关为%d，门限为%d，光滑参数为%d，' % (sys._getframe().f_code.co_name,smooth,threshold, smooth_param)
             res = self._base_verbose(params,other)
             dump(res)
-
-    def _drawContour(self, params):
+    
+    def _findCenterAndContours(self, params):
         if exist(params, 'input_label'):
             input_label = get(params, 'input_label', 'hello')
             input_img = self.labels[self.index][input_label]
-
         # 读入参数
         max_length = get(params,'max_length', 1000) 
         min_length = get(params, 'min_length',7)
-        min_one_size = get(params,'min_one_size',45)
-        one_size = get(params,'one_size',100)
-        more_size = get(params,'more_size',1000)
         circle_size = get(params,'circle_size',50000)
-        param_out = get(params,'param_out',{})
+        param_out = get(params, 'param_out',{})
         # 找轮廓
-        contours, hierarchy = cv2.findContours(input_img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)  
-        the_res = input_img.copy()
-        the_res = cv2.cvtColor(the_res,cv2.COLOR_GRAY2BGR)
+        contours, hierarchy = cv2.findContours(input_img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE) 
         # 找到中心点
-        center = list(the_res.shape)
+        center = list(input_img.shape)
         center[0]/=2
         center[1]/=2
-        red_contours = []
-
-        def cross(m1,m2):
-            return float(m1[0]*m2[1] - m1[1]*m2[0])
-
-        def vec(p1,p2):
-            return [float(p1[0])/100.-float(p2[0])/100., float(p1[1])/100.-float(p2[1])/100.]
-
-        def inBox(box, point):
-            A = list(box[0])
-            B = list(box[1])
-            C = list(box[2])
-            D = list(box[3])
-            P = point
-            AP = vec(A,P)
-            AB = vec(A,B)
-            CD = vec(C,D)
-            CA = vec(C,A)
-            ABP = cross(AB,AP)
-            CDA = cross(CD,CA)
-            one = ABP*CDA
-            two = cross(vec(B,C),vec(B,P))*cross(vec(D,A),vec(D,P))
-            return (one>0 and two>0)
-        
+        flag = False
+        new_contours = []
+        rects = []
         # 第一次循环，找到圆心
         for contour in contours:
             rect = cv2.minAreaRect(contour)
@@ -319,58 +480,125 @@ class CVBase(object):
             # 检验面积
             area=rect[1][0]*rect[1][1]
             box = cv2.boxPoints(rect)
-            if area > circle_size and inBox(box, center):
+
+            if not flag and area > circle_size and self.__inBox(box, center):
                 center_contour = contour
-                break
-        
+                flag = True
+            else:
+                contour_area = cv2.contourArea(contour,oriented=True)
+                if contour_area < 0:
+                    continue
+                rects.append(rect)
+                new_contours.append(contour)
+                
+        output_img = input_img
+        # 得到了最近距离和最远距离
+        self.params[self.index][param_out['center_contour']] = center_contour
         # 找到中心的x和y坐标
         center_rect = cv2.fitEllipse(center_contour)
-        # (x,y), (w,h), angle
-        self.params[self.index][param_out['center']] = center_rect
-
-        # 第二次循环，找到red
-        rects = []
-        for contour in contours:
-            rect = cv2.minAreaRect(contour)
-            # 检验宽度和高度，如果小于10或者大于1000的话跳过
-            if rect[1][0] >max_length or rect[1][1]> max_length or rect[1][0] < min_length or rect[1][1] <min_length:
-                continue
-            # 检验面积
-            area=rect[1][0]*rect[1][1]
-            if area < min_one_size:             # 细小的轮廓跳过
-                continue
-            # 和中心圆盘一样的话跳过
-            # if contour.all() == center_contour.all():
-            #     continue
-            # elif area < more_size:     # 有可能是1个的
-            #     green_contours.append(contour)
-            #     continue
-
-            # 宽度比高度大
-            if rect[1][1]>rect[1][0]:
-                w,h = rect[1][1],rect[1][0]
-            else:
-                w,h = rect[1][0],rect[1][1]
-            rects.append([w,h])
-            # 其他就是红色的
-            box = cv2.boxPoints(rect)
-            red_contours.append(contour)
+        self.params[self.index][param_out['center_rect']] = center_rect
+        # 所有的轮廓在这个地方
+        self.params[self.index][param_out['new_contours']] = new_contours
+        # 所有的外接矩形在这个地方
+        self.params[self.index][param_out['rects']] = rects
         
-        rects = np.array(rects)
-        print(rects.shape)
-        rects = rects[np.lexsort(rects[:,::-1].T)]
-        mean_length = np.mean(rects[:10,:],axis = 0)
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        if test(params, 'verbose',True):
+            other = '操作为%s，中心点的坐标为(%f,%f)，宽度为%f，高度为%f，找到的轮廓（除中心外）有%d个，找到的外接矩形（除中心的外）有%d个，' % (sys._getframe().f_code.co_name,center_rect[0][0],center_rect[0][1],center_rect[1][0],center_rect[1][1],len(new_contours),len(rects))
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+    
+    def __inBox(self,box, point):
+        A = np.array(list(box[0]))
+        B = np.array(list(box[1]))
+        C = np.array(list(box[2]))
+        D = np.array(list(box[3]))
+        P = np.array(point[:2])
+        one = np.cross(B-A, P-A)*np.cross(D-C, A-C)
+        two = np.cross(C-B, P-B)*np.cross(A-D, P-D)
+        return (one>0 and two>0)
+
+    def _saveContours(self, params):
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+
+        param_in = get(params,'param_in',{})
+        param_out = get(params,'param_out',{})        
+        path = ops.abspath(params['path'])
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        ##############################
+        # TODO 这里填写具体操作
+        ##############################
+        new_contours = self.params[self.index][param_in['new_contours']]
+        contours_img = []
+        # white_img = np.zeros_like(input_img)
+        for i,contour in enumerate(new_contours):        
+            white_img = np.zeros_like(input_img)
+            zero_img = cv2.drawContours(white_img,[contour],-1,(255,255,255),-1)
+            rect = cv2.minAreaRect(contour)       
+            w,h = rect[1][0],rect[1][1]
+            box = cv2.boxPoints(rect)
+            new_rect = np.array([[0,0],[0,h],[w,h],[w,0]])
+            # patch = np.ones((w,h),dtype=np.uint8)
+            perspective_transform = cv2.getPerspectiveTransform(box.astype(np.float32),new_rect.astype(np.float32))
+            new_pic = cv2.warpPerspective(zero_img,perspective_transform,(int(w),int(h)))
+            if w > h:
+                new_pic = cv2.rotate(new_pic,cv2.ROTATE_90_COUNTERCLOCKWISE)
+            contours_img.append(new_pic)
+            area = cv2.contourArea(contour,oriented = True)
+            new_name = os.path.join(path,'contour_' + str(self.index) + '_'+str(i) +'_'+str(area) + '.png')
+            cv2.imwrite(new_name,new_pic)
+
+        self.params[self.index][param_out['contours_img']] = contours_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+    
+    def _countByDist(self, params):
+        param_in = get(params,'param_in',{})
+        param_out = get(params,'param_out',{})
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        # 这边得到平均长度
+        rects = self.params[self.index][param_in['rects']]
+        new_rects = []
+        for rect in rects:
+            new_rects.append([rect[0][0],rect[0][1],rect[1][0],rect[1][1], rect[2]])
+        new_rects = np.array(new_rects)
+        print(new_rects.shape)
+        print(new_rects)
+
+        new_rects = new_rects[new_rects[:,2].argsort()]
+
+        # print(rects)
+        mean_length = np.mean(new_rects[100:200,2:4],axis = 0)
         print(mean_length)
-        # 找到距离
-        font=cv2.FONT_HERSHEY_SIMPLEX
+        center_rect = self.params[self.index][param_in['center_rect']]
+        new_contours = self.params[self.index][param_in['new_contours']]
+
         count = 0
-        # 开始画
-        for contour in red_contours:
+        count_res = []
+        dist_list = []
+        for contour in new_contours:
             min_dist = 80000
             max_dist = 0
             for point in contour:
                 point = point.tolist()[0]
-                # dump(point[0],center_rect[0])
                 ex = center_rect[0][0] - point[0]
                 ey = center_rect[0][1] - point[1]
                 dist = math.sqrt(ex**2+ey**2)
@@ -384,28 +612,54 @@ class CVBase(object):
             elif test(params,'mode','height'):
                 val = mean_length[1]
             predict_num = int(np.round(err / val))
-            if predict_num == 1:
-                color = (0.0,255.0,0.0)
-            else:
-                color = (0.0,0.0,255.0)
-            linewidth = 1
-            rect = cv2.minAreaRect(contour)
+            count_res.append(predict_num)
+            dist_list.append(err)
+            count += predict_num
+        output_img = input_img
+        self.params[self.index][param_out['dist_count']] = count
+        self.params[self.index][param_out['count_res']] = count_res
+        self.params[self.index][param_out['dist_list']] = dist_list
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，总的个数为%d，其他轮廓的数量为%d，' % (sys._getframe().f_code.co_name,count,len(count_res))
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+
+    '''
+    在findCenterAndContours和countByDist之后才能够执行
+    '''
+    def _drawContour(self, params):
+        param_in = get(params,'param_in',{})
+        param_out = get(params,'param_out',{})
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        output_img = cv2.cvtColor(input_img,cv2.COLOR_GRAY2BGR)
+        # new_contours = self.params[self.index][param_in['new_contours']]
+        rects = self.params[self.index][param_in['rects']]
+        count_res = self.params[self.index][param_in['count_res']]
+        linewidth = 1
+        font=cv2.FONT_HERSHEY_SIMPLEX
+        for index,rect in enumerate(rects):
+            color = (random.randrange(0,255),random.randrange(0,255),random.randrange(0,255))
             box = cv2.boxPoints(rect)
             for i in range(4):
-                cv2.line(the_res,tuple(box[i]), tuple(box[(i+1)%4]), color, linewidth) # 画线
-            cv2.putText(the_res,str(predict_num),(int(rect[0][0]),int(rect[0][1])), font, 1,color,1)
-            count+=predict_num
-        output_img = the_res.copy()
-        # 得到了最近距离和最远距离
-        self.params[self.index][param_out['count']] = count
+                cv2.line(output_img,tuple(box[i]), tuple(box[(i+1)%4]), color, linewidth) # 画线
+            cv2.putText(output_img,str(count_res[index]),(int(rect[0][0]),int(rect[0][1])), font, 1,color,1)
 
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
             self.labels[self.index][output_label] = output_img
         if test(params, 'verbose',True):
-            other = '操作为%s，统计个数为%d，' % (sys._getframe().f_code.co_name,count)
+            other = '操作为%s，' % (sys._getframe().f_code.co_name)
             res = self._base_verbose(params,other)
-            dump(res,'hyk')
+            dump(res,abbr='hyk')
 
     '''
     把笛卡尔坐标系变成极坐标系
@@ -421,7 +675,7 @@ class CVBase(object):
             input_img = self.labels[self.index][input_label]
         ##############################
         # TODO 这里填写具体操作
-        center_point = self.params[self.index][param_in['center']]
+        center_point = self.params[self.index][param_in['center_rect']]
         ox,oy = center_point[0]
         x = np.arange(input_img.shape[0])
         y = np.arange(input_img.shape[1])
@@ -474,7 +728,7 @@ class CVBase(object):
         if test(params, 'verbose',True):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
-            dump(res,'hyk')
+            dump(res,abbr='hyk')
 
     '''
     把一个图片复制成另一个名称
@@ -499,7 +753,110 @@ class CVBase(object):
         if test(params, 'verbose',True):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
-            dump(res,'hyk')
+            dump(res,abbr='hyk')
+    
+
+    '''
+    把一个图片复制成另一个名称
+    '''
+    def _matchContours(self,params):
+        param_in = get(params,'param_in',{})
+        val = get(params,'val',0.7)
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        contours_img = self.params[self.index][param_in['contours_img']]
+        # 随便选的数字，这里应该有算法才对
+        templ = contours_img[22]
+        padding = 60
+        half_padding = 30
+        match_template_count = 0
+        for i,contour_img in enumerate(contours_img):
+            w,h = contour_img.shape
+            padding_contour_img = np.zeros((w+padding,h+padding),dtype=np.uint8 )
+            padding_contour_img[half_padding:-half_padding,half_padding:-half_padding] = contour_img
+            new_w, new_h = padding_contour_img.shape
+            tw,th = templ.shape
+            if new_w > tw and new_h>th:
+                max_val = self.__flip_pic_find_max_val(padding_contour_img, templ, val, i)
+                match_template_count += len(max_val)
+            else:
+                print('图片%d太小了，才%d,%d不足以被模板%d,%d识别，加了padding也不行qwq'%(i,new_w,new_h,tw,th ))
+        print('使用模板匹配统计个数：',match_template_count)
+        output_img = input_img
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+
+    def __flip_pic_find_max_val(self, padding_contour_img, templ, val, i):
+        # 原图
+        collection, max_val = self.__get_max_val(padding_contour_img, templ, val)
+        if len(max_val)!=0:
+            print(i,collection.T,max_val)
+            return max_val
+
+        # 旋转180
+        padding_contour_img = cv2.rotate(padding_contour_img,cv2.ROTATE_180)
+        collection, max_val = self.__get_max_val(padding_contour_img, templ, val)
+        if len(max_val)!=0:
+            print(i,'fliped 180',collection.T,max_val)
+            return max_val
+
+        # 旋转90
+        padding_contour_img = cv2.rotate(padding_contour_img,cv2.ROTATE_90_CLOCKWISE)
+        collection, max_val = self.__get_max_val(padding_contour_img, templ, val)
+        if len(max_val)!=0:
+            print(i,'fliped 90',collection.T,max_val)
+            return max_val
+
+        # 再旋转180
+        padding_contour_img = cv2.rotate(padding_contour_img,cv2.ROTATE_180)
+        collection, max_val = self.__get_max_val(padding_contour_img, templ, val)
+        if len(max_val)!=0:
+            print(i,'fliped -90',collection.T,max_val)
+            return max_val
+        
+        return []
+
+    def __get_max_val(self, padding_contour_img, templ, val):
+        res = cv2.matchTemplate(padding_contour_img,templ,cv2.TM_CCOEFF_NORMED)
+        loc = np.where(res > val)
+        collection = self.__get_loc(loc, res)
+        max_val = []
+        if len(collection) != 0:
+            max_val = res[collection[0,:],collection[1,:]]
+        return collection,max_val
+
+    def __get_loc(self, loc, res):
+        if len(loc[0])==0:
+            return np.array([])
+        collection = [(loc[0][0],loc[1][0])]
+        for index in range(loc[0].shape[0]):
+            loc_y,loc_x = loc[0][index],loc[1][index]
+            flag = False
+            for item_index in range(len(collection)):
+                y,x = collection[item_index]
+                if abs(y-loc_y)< 5 or abs(x-loc_x)< 5:
+                    flag = True
+                    if res[y,x] < res[loc_y,loc_x]:
+                        collection[item_index] = (loc_y,loc_x)
+            if flag == False: 
+                collection.append((loc_y,loc_x))
+        collection = np.array(collection).T
+        return collection
 
     '''
     把一个图片复制成另一个名称
@@ -529,7 +886,7 @@ class CVBase(object):
         if test(params, 'verbose',True):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
-            dump(res,'hyk')
+            dump(res,abbr='hyk')
 
     '''
     使用滤镜
@@ -537,6 +894,7 @@ class CVBase(object):
     def _filter(self,params):
         kernel_type = get(params, 'kernel_type', 'gaussian')
         kernel_size = get(params, 'kernel_size', 3)
+        direction = get(params, 'direction', 0)
         ##############################
         # TODO 这里填写输入参数
         ##############################
@@ -545,15 +903,40 @@ class CVBase(object):
             input_img = self.labels[self.index][input_label]
         ##############################
         # TODO 这里填写具体操作
-        if kernel_type == 'scharr':
-            kernel_x = np.array([[-3,0,3],[-10,0,10],[-3,0,3]])
-            kernel_y = np.array([[-3,-10,-3],[0,0,0],[3,10,3]])
-            output_img = cv2.filter2D(input_img,ddepth=0,kernel = kernel_x)
-            output_img = cv2.filter2D(output_img,ddepth=0,kernel = kernel_y)
+        if (kernel_type,kernel_size,direction) == ('scharr',3,0):
+            kernel = np.array([[-3,-10,-3],[0,0,0],[3,10,3]])
+            output_img = cv2.filter2D(input_img,ddepth=0,kernel = kernel)
+        elif (kernel_type,kernel_size,direction) == ('scharr',3,1):
+            kernel = np.array([[-3,0,3],[-10,0,10],[-3,0,3]])
+            output_img = cv2.filter2D(input_img,ddepth=0,kernel = kernel)
+        elif (kernel_type,kernel_size,direction) == ('sobel',3,1):
+            # x
+            kernel = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
+            output_img = cv2.filter2D(input_img,ddepth=0,kernel = kernel)
+        elif (kernel_type,kernel_size,direction) == ('sobel',3,0):
+            # y
+            kernel = np.array([[3,10,3],[0,0,0],[-3,-10,-3]])
+            output_img = cv2.filter2D(input_img,ddepth=0,kernel = kernel)
+        elif (kernel_type,kernel_size,direction) == ('sobel–feldman',3,1):
+            # x
+            kernel = np.array([[3,0,-3],[10,0,-10],[3,0,-3]])
+            output_img = cv2.filter2D(input_img,ddepth=0,kernel = kernel)
+        elif (kernel_type,kernel_size,direction) == ('sobel–feldman',3,0):
+            # y
+            kernel = np.array([[-1,-2,-1],[0,0,0],[1,2,1]])
+            output_img = cv2.filter2D(input_img,ddepth=0,kernel = kernel)
+        elif (kernel_type,kernel_size,direction) == ('sobel',3,-1):
+            kernel_y = np.array([[-1,-2,-1],[0,0,0],[1,2,1]])
+            kernel_x = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
+            output_img1 = cv2.filter2D(input_img,ddepth=0,kernel = kernel_y)
+            output_img2 = cv2.filter2D(input_img,ddepth=0,kernel = kernel_x)
+            output_img = np.sqrt(output_img1**2 + output_img2 ** 2) * 16
             # output_img = input_img
+        output_img = output_img.astype(np.uint8)
         ##############################
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
+            print(output_img)
             self.labels[self.index][output_label] = output_img
         ##############################
         # TODO 这里也需要修改打印输出时怎么样的
@@ -561,7 +944,7 @@ class CVBase(object):
         if test(params, 'verbose',True):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
-            dump(res,'hyk')
+            dump(res,abbr='hyk')
 
     '''
     一些数学操作
@@ -583,6 +966,7 @@ class CVBase(object):
             output_img = input_img * weight + bias
         elif mode=='exp':
             output_img = input_img ** power
+        output_img = np.where(output_img>255,255,output_img)
         # max_val = np.max(output_img)
         # output_img = output_img * 1000 / max_val
         output_img = output_img.astype(np.uint8)
@@ -596,7 +980,7 @@ class CVBase(object):
         if test(params, 'verbose',True):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
-            dump(res,'hyk')
+            dump(res,abbr='hyk')
 
     def _bilateral(self,params):
         d=get(params,'d',0)
@@ -618,7 +1002,7 @@ class CVBase(object):
         if test(params, 'verbose',True):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
-            dump(res,'hyk')
+            dump(res,abbr='hyk')
             
     def _dump_params(self,params):
         dump_simple(self.params[0])
@@ -672,5 +1056,5 @@ class CVBase(object):
             self.index+=1
 
 if __name__ == "__main__":
-    hello = CVBase('./pics2','./config.yaml')
+    hello = CVBase('./pics2','./demo.yaml')
     hello.run()

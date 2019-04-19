@@ -175,3 +175,83 @@
     output_label: 'bilateral'
     verbose: true
 ```
+
+### filter
+
+- `kernel_type`: 核的种类
+- `kernel_size`: 核的大小
+- `direction`: 核的方向，如果是0的话沿着y轴，如果是1的话沿着x轴
+
+```yaml
+- filter:
+    input_label: 'blur2'
+    kernel_type: 'scharr'
+    kernel_size: 1
+    direction:   0
+    output_label: 'filtered'
+    verbose: true
+
+```
+
+### 得到一个元件的面积: getOneArea
+
+- `param_out`:
+    - `areas`: 输出所有元件的面积，未排序，这样就能够和轮廓对应上去了
+    - `one_area`: 输出单个元件的面积
+- `output_label`:
+    其实就是把原来的元件处理了一下qwq
+
+```yaml
+- getOneArea:
+    param_out:
+        areas: 'areas'
+        one_area: 'one_area'
+    input_label: 'threshold'
+    output_label: 'one_area'
+    verbose: true
+```
+
+### 根据面积数出元件的数量： countByArea
+
+- `param_in`:
+    - `one_area`: 输入单个X元件的面积，如果是数字的话，就是固定值，否则的话是根据`getOneArea`上一步计算出来的区域。  
+- `param_out`:
+    - `one_count`: 输出个数，并且在verbose的打印当中会看到
+
+```yaml
+- countByArea:
+    param_in:
+        one_area: 'one_area'
+    param_out:
+        one_count: 'one_count'
+    input_label: 'threshold'
+    output_label: 'area_count'
+    verbose: true
+```
+
+### 画出轮廓面积的直方图， drawAreaHist
+
+- `channel`: 输出的通道数量
+- `pic_width`: 输出图像的宽度
+- `pic_height`: 输出图像的宽度
+- `param_in`:
+    - areas: 每一个区间，统计的轮廓的数量
+- `param_out`:
+    - areas_range: 轮廓的每一个区间     # TODO
+
+```yaml
+- drawAreaHist:
+    input_label: 'threshold'
+    output_label: 'area_hist'
+    verbose: true
+    channel: 200
+    pic_width: 1000
+    pic_height: 300
+    param_in:  
+        areas: 'areas'
+    param_out:
+        areas_range: 'areas_range'
+```
+
+### 把找轮廓，画轮廓和数数字拆分出来，因为遍历轮廓这个操作一直在进行， getContour
+

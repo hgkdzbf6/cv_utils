@@ -1,0 +1,243 @@
+---
+
+- readIn:
+    mode: 0                   # 图像模式
+    type: 'jpg'               # 主要看是不是raw文件
+    raw_size: 3072 
+    output_label: 'hello'     # 保存成一个另外的标签
+    verbose: true             # 显示处理结果
+
+- drawColorHist:
+    input_label: 'hello'
+    channel: 255
+    threshold: 50
+    smooth: true
+    smooth_param: 5
+    output_label: 'hist'
+    param_out: 
+        hist: 'hist'
+        mid_hist: 'mid_hist'
+    verbose: true
+
+- math:
+    input_label: 'hello'
+    mode: 'exp'
+    power: 1.5
+    output_label: 'math'
+    verbose: true
+
+- threshold:
+    input_label: 'math'
+    val: 1
+    output_label: 'threshold'
+    verbose: true
+
+# 首先得到一个区域
+- getOneArea:
+    param_out:
+        areas: 'areas'
+        # one_area: 'one_area'
+    input_label: 'threshold'
+    output_label: 'one_area'
+    verbose: true
+
+# 然后话区域面积的直方图
+- drawAreaHist:
+    input_label: 'threshold'
+    output_label: 'area_hist'
+    verbose: true
+    channel: 300
+    pic_width: 1000
+    pic_height: 300
+    param_in:
+        areas: 'areas'
+    param_out:
+        one_area: 'one_area'
+        areas_range: 'areas_range'
+        areas_hist: 'areas_hist'
+
+# 画图
+- writeOut:
+    input_label: 'area_hist'
+    prefix: 'ah_'
+    # suffix: '_hist'
+    path: './imgs'
+    verbose: true
+
+# 数个数
+- countByArea:
+    param_in:
+        one_area: 'one_area'
+    param_out:
+        area_count: 'area_count'
+    input_label: 'threshold'    
+    output_label: 'area_count'
+    verbose: true
+
+- writeOut:
+    input_label: 'area_count'
+    prefix: 'ac_'
+    # suffix: '_hist'
+    path: './imgs'
+    verbose: true
+
+- morphology:
+    input_label: 'threshold'
+    kernel_size: 5
+    run:
+        - 
+            erode_time: 1
+            dilate_time: 0
+            times: 1
+            res: 2
+        - 
+            erode_time: 0
+            dilate_time: 1
+            times: 1
+            res: 2
+        - 
+            erode_time: 1
+            dilate_time: 0
+            times: 1
+            res: 2
+        - 
+            erode_time: 0
+            dilate_time: 1
+            times: 1
+            res: 2
+        - 
+            erode_time: 1
+            dilate_time: 0
+            times: 1
+            res: 2
+        - 
+            erode_time: 0
+            dilate_time: 1
+            times: 1
+            res: 2
+    output_label: 'morphology'
+
+- findCenterAndContours:
+    input_label:    'threshold'
+    output_label:   'find_center'
+    max_length:     1000
+    min_length:     7
+    circle_size:    50000
+    param_out:
+        center_contour: 'center_contour'
+        center_rect: 'center_rect'
+        new_contours: 'new_contours'
+        rects: 'rects'
+    verbose:        true
+
+- saveContours:
+    input_label:    'threshold'
+    param_in:
+        new_contours: 'new_contours'
+    param_out:
+        contours_img: 'contours_img'
+    path: './test'    
+    verbose:        true
+
+- matchContours:
+    input_label:    'threshold'
+    param_in:        
+        contours_img: 'contours_img'
+    param_out:
+        match_scores: 'match_scores'
+    output_label:    'match_img'
+    verbose:        true
+
+- countByDist:
+    input_label: 'threshold'    
+    mode:   'width' # 另一个是'height'
+    param_in:
+        # center_contour: 'center_contour'
+        center_rect: 'center_rect'
+        new_contours: 'new_contours'
+        rects: 'rects'
+    param_out:
+        dist_count: 'dist_count'
+        count_res: 'count_res'
+        dist_list: 'dist_list'
+    output_label: 'countByDist'
+    verbose: true
+
+- drawContour:
+    input_label:    'threshold'
+    output_label:   'contour'
+    param_in:
+        new_contours: 'new_contours'        
+        count_res: 'count_res'
+        rects: 'rects'
+    verbose:        true
+
+- writeOut:
+    input_label: 'math'
+    prefix: 'math_'
+    path: './imgs'
+    verbose: true
+
+- toPolar:
+    input_label: 'threshold'
+    shake_times: 2
+    param_in:
+        center_rect: 'center_rect'
+    output_label: 'polar'
+
+- writeOut:
+    input_label: 'math'
+    prefix: 'math_'
+    path: './imgs'
+    verbose: true
+
+- writeOut:
+    input_label: 'contour'
+    prefix: 'contour_'
+    path: './imgs'
+    verbose: true
+
+- writeOut:
+    input_label: 'polar'
+    prefix: 'polar_'
+    path: './imgs'
+    verbose: true
+
+- writeOut:
+    input_label: 'hello'
+    prefix: 'origin_'
+    path: './imgs'
+    verbose: true
+
+- writeOut:
+    input_label: 'hist'
+    prefix: 'hist_'
+    # suffix: '_hist'
+    path: './imgs'
+    verbose: true
+
+- writeOut:
+    input_label: 'threshold'
+    prefix: 'thres_'
+    # suffix: '_th'
+    path: './imgs'
+    verbose: true
+
+- writeOut:
+    input_label: 'morphology'
+    prefix: 'mor_'
+    # suffix: '_mor'
+    path: './imgs'
+    verbose: true
+
+- drawTwoData:
+    param_in:
+        areas: 'areas'
+        dist_list: 'dist_list'
+    output_label: 'two_data'
+
+- tree:
+    hello: 'world'
+
+- dump_params:
+    hello: 'world'

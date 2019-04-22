@@ -120,7 +120,7 @@
 - findCenterAndContours:
     input_label:    'threshold'
     output_label:   'find_center'
-    max_length:     1000
+    max_length:     2000
     min_length:     7
     circle_size:    50000
     param_out:
@@ -230,11 +230,11 @@
     path: './imgs'
     verbose: true
 
-- drawTwoData:
-    param_in:
-        areas: 'areas'
-        dist_list: 'dist_list'
-    output_label: 'two_data'
+# - drawTwoData:
+#     param_in:
+#         areas: 'areas'
+#         dist_list: 'dist_list'
+#     output_label: 'two_data'
 
 - tree:
     hello: 'world'

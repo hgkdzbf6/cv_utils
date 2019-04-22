@@ -292,7 +292,7 @@ class CVBase(object):
     def _getOneArea(self, params):
         param_out = get(params, 'param_out',{})
         param_in = get(params, 'param_in',{})       
-        max_length = get(params,'max_length', 1000) 
+        max_length = get(params,'max_length', 1000)
         min_length = get(params, 'min_length',7)
         min_one_size = get(params,'min_one_size',45) 
         ##############################
@@ -773,8 +773,8 @@ class CVBase(object):
         contours_img = self.params[self.index][param_in['contours_img']]
         # 随便选的数字，这里应该有算法才对
         templ = contours_img[22]
-        padding = 60
-        half_padding = 30
+        padding = 200
+        half_padding = 100
         match_template_count = 0
         for i,contour_img in enumerate(contours_img):
             w,h = contour_img.shape

@@ -1,0 +1,77 @@
+---
+
+- readIn:
+    mode: 0                   # 图像模式
+    type: 'jpg'               # 主要看是不是raw文件
+    raw_size: 3072 
+    output_label: 'hello'     # 保存成一个另外的标签
+    verbose: true             # 显示处理结果
+
+- fft:
+    input_label: 'hello'
+    verbose: true
+    val: 8
+    output_label: 'fft'     # 保存成一个另外的标签
+    param_out:
+        fft: 'fft'
+
+- fft_math:
+    param_in:
+        fft: 'fft'
+    param_out:
+        fft_math: 'fft_math'
+    verbose: true
+    mode: 'more_than_one'
+    output_label: 'fft_math'
+
+- ifft:
+    input_label: 'hello'
+    verbose: true
+    output_label: 'ifft'     # 保存成一个另外的标签
+    param_in:
+        fft: 'fft_math'
+
+- canny:
+    input_label: 'ifft'
+    kernel_size: 3
+    sigma: 1
+    low: 100
+    high: 150
+    verbose: true
+    output_label: 'canny'
+  
+- writeOut:
+    input_label: 'fft'
+    prefix: 'fft_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'fft_math'
+    prefix: 'fft_math_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'ifft'
+    prefix: 'ifft_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'hello'
+    prefix: 'origin_'
+    path: './imgs'
+    verbose: true
+
+- writeOut:
+    input_label: 'canny'
+    prefix: 'canny_'
+    path: './imgs'
+    verbose: true
+
+- tree:
+    hello: 'world'
+
+- dump_params:
+    hello: 'world'

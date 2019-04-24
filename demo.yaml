@@ -21,63 +21,23 @@
 
 - math:
     input_label: 'hello'
-    mode: 'exp'
+    mode: 'linear'
     power: 1.5
+    weight: 1
+    bias: -145
     output_label: 'math'
     verbose: true
 
 - threshold:
     input_label: 'math'
-    val: 1
+    val: 10
     output_label: 'threshold'
     verbose: true
 
-# 首先得到一个区域
-- getOneArea:
-    param_out:
-        areas: 'areas'
-        # one_area: 'one_area'
-    input_label: 'threshold'
-    output_label: 'one_area'
-    verbose: true
-
-# 然后话区域面积的直方图
-- drawAreaHist:
-    input_label: 'threshold'
-    output_label: 'area_hist'
-    verbose: true
-    channel: 300
-    pic_width: 1000
-    pic_height: 300
-    param_in:
-        areas: 'areas'
-    param_out:
-        one_area: 'one_area'
-        areas_range: 'areas_range'
-        areas_hist: 'areas_hist'
-
-# 画图
 - writeOut:
-    input_label: 'area_hist'
-    prefix: 'ah_'
-    # suffix: '_hist'
-    path: './imgs'
-    verbose: true
-
-# 数个数
-- countByArea:
-    param_in:
-        one_area: 'one_area'
-    param_out:
-        area_count: 'area_count'
-    input_label: 'threshold'    
-    output_label: 'area_count'
-    verbose: true
-
-- writeOut:
-    input_label: 'area_count'
-    prefix: 'ac_'
-    # suffix: '_hist'
+    input_label: 'threshold'
+    prefix: 'thres_'
+    # suffix: '_th'
     path: './imgs'
     verbose: true
 
@@ -121,7 +81,7 @@
     input_label:    'threshold'
     output_label:   'find_center'
     max_length:     2000
-    min_length:     7
+    min_length:     3
     circle_size:    50000
     param_out:
         center_contour: 'center_contour'
@@ -130,23 +90,24 @@
         rects: 'rects'
     verbose:        true
 
-- saveContours:
-    input_label:    'threshold'
-    param_in:
-        new_contours: 'new_contours'
-    param_out:
-        contours_img: 'contours_img'
-    path: './test'    
-    verbose:        true
+# - saveContours:
+#     input_label:    'threshold'
+#     param_in:
+#         new_contours: 'new_contours'
+#     param_out:
+#         contours_img: 'contours_img'
+#     path: './test'    
+#     verbose:        true
 
-- matchContours:
-    input_label:    'threshold'
-    param_in:        
-        contours_img: 'contours_img'
-    param_out:
-        match_scores: 'match_scores'
-    output_label:    'match_img'
-    verbose:        true
+# - matchContours:
+#     input_label:    'threshold'
+#     param_in:        
+#         contours_img: 'contours_img'
+#     param_out:
+#         match_scores: 'match_scores'
+#         match_template_count: 'match_template_count'
+#     output_label:    'match_img'
+#     verbose:        true
 
 - countByDist:
     input_label: 'threshold'    
@@ -166,7 +127,8 @@
 - drawContour:
     input_label:    'threshold'
     output_label:   'contour'
-    param_in:
+    param_in:        
+        count: 'dist_count'
         new_contours: 'new_contours'        
         count_res: 'count_res'
         rects: 'rects'
@@ -175,6 +137,58 @@
 - writeOut:
     input_label: 'math'
     prefix: 'math_'
+    path: './imgs'
+    verbose: true
+
+# 首先得到一个区域
+- getOneArea:
+    param_in:
+        new_contours: 'new_contours'
+    param_out:
+        areas: 'areas'
+        # one_area: 'one_area'
+    input_label: 'threshold'
+    output_label: 'one_area'
+    verbose: true
+
+# 然后话区域面积的直方图
+- drawAreaHist:
+    input_label: 'threshold'
+    output_label: 'area_hist'
+    verbose: true
+    channel: 300
+    pic_width: 1000
+    pic_height: 300
+    param_in:
+        areas: 'areas'
+    param_out:
+        one_area: 'one_area'
+        areas_range: 'areas_range'
+        areas_hist: 'areas_hist'
+
+# 画图
+- writeOut:
+    input_label: 'area_hist'
+    prefix: 'ah_'
+    # suffix: '_hist'
+    path: './imgs'
+    verbose: true
+
+# 数个数，并输出每个结果
+- countByArea:
+    param_in:
+        new_contours: 'new_contours'
+        one_area: 'one_area'
+    param_out:
+        area_count: 'area_count'
+    input_label: 'threshold'    
+    output_label: 'area_count'
+    verbose: true
+
+- writeOut:
+    input_label: 'area_count'
+    prefix: 'ac_'
+    # suffix: '_hist'
     path: './imgs'
     verbose: true
 
@@ -216,12 +230,6 @@
     path: './imgs'
     verbose: true
 
-- writeOut:
-    input_label: 'threshold'
-    prefix: 'thres_'
-    # suffix: '_th'
-    path: './imgs'
-    verbose: true
 
 - writeOut:
     input_label: 'morphology'

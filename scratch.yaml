@@ -7,15 +7,24 @@
     output_label: 'hello'     # 保存成一个另外的标签
     verbose: true             # 显示处理结果
 
-- fft:
+- resize:
     input_label: 'hello'
+    width: 800
+    height: 600
+    flip: true
     verbose: true
-    val: 8
+    output_label: 'resize'     # 保存成一个另外的标签
+    
+
+- fft:
+    input_label: 'resize'
+    verbose: true
     output_label: 'fft'     # 保存成一个另外的标签
     param_out:
         fft: 'fft'
 
-- fft_math:
+- fft_math:    
+    val: 13
     param_in:
         fft: 'fft'
     param_out:
@@ -25,30 +34,251 @@
     output_label: 'fft_math'
 
 - ifft:
-    input_label: 'hello'
+    input_label: 'resize'
     verbose: true
     output_label: 'ifft'     # 保存成一个另外的标签
     param_in:
         fft: 'fft_math'
 
-- canny:
-    input_label: 'ifft'
+- filter:
+    input_label: 'resize'
+    kernel_type: 'scharr'
     kernel_size: 3
-    sigma: 1
-    low: 100
-    high: 150
+    direction: -1
     verbose: true
-    output_label: 'canny'
+    output_label: 'filter'
+
+- blur:
+    input_label: 'filter'
+    kernel_size: 7
+    mode: 'median'
+    output_label: 'blur'
+    verbose: true
+
+- blur:
+    input_label: 'blur'
+    kernel_size: 11
+    sigma: 3
+    mode: 'gaussian'
+    output_label: 'blur2'
+    verbose: true
+
+- shake:
+    input_label: 'blur2'
+    shake_times: 5
+    mode: 'max_shake'
+    shake_stride: 1
+    output_label: 'shake'
+    verbose: true
+
+- threshold:
+    input_label: 'shake'
+    val: 128
+    output_label: 'threshold'
+    verbose: true
+
+- threshold:
+    input_label: 'ifft'
+    val: 128
+    output_label: 'threshold2'
+    verbose: true
+
+- morphology:
+    input_label: 'threshold2'
+    kernel_size: 3
+    run:
+        - 
+            erode_time: 1
+            dilate_time: 0
+            times: 1
+            res: 2
+        - 
+            erode_time: 0
+            dilate_time: 2
+            times: 1
+            res: 2
+
+    output_label: 'morphology3'
+
+- canny:
+    input_label: 'morphology3'
+    kernel_size: 11
+    sigma: 5
+    low: 100
+    high: 200
+    verbose: true
+    output_label: 'canny3'
+
+- canny:
+    input_label: 'threshold2'
+    kernel_size: 11
+    sigma: 5
+    low: 10
+    high: 50
+    verbose: true
+    output_label: 'canny2'
+
+- equalHist:
+    input_label: 'filter'
+    verbose: true
+    output_label: 'equalHist'
+
+- writeOut:
+    input_label: 'equalHist'
+    prefix: 'equalHist_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'shake'
+    prefix: 'shake_'
+    path: './imgs'
+    verbose: true  
+    
+
+- drawColorHist:
+    input_label: 'equalHist'
+    channel: 255
+    threshold: 50
+    smooth: true
+    smooth_param: 5
+    output_label: 'hist'
+    param_out: 
+        hist: 'hist'
+        mid_hist: 'mid_hist'
+    verbose: true
+
+- writeOut:
+    input_label: 'hist'
+    prefix: 'hist_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'threshold'
+    prefix: 'threshold_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'threshold2'
+    prefix: 'threshold2_'
+    path: './imgs'
+    verbose: true  
+
+- morphology:
+    input_label: 'blur2'
+    kernel_size: 15
+    run:
+        - 
+            erode_time: 0
+            dilate_time: 3
+            times: 1
+            res: 2
+        - 
+            erode_time: 3
+            dilate_time: 0
+            times: 1
+            res: 2
+    output_label: 'morphology'
+
+- morphology:
+    input_label: 'threshold'
+    kernel_size: 7
+    run:
+        - 
+            erode_time: 1
+            dilate_time: 0
+            times: 1
+            res: 2
+        - 
+            erode_time: 0
+            dilate_time: 2
+            times: 1
+            res: 2
+        - 
+            erode_time: 1
+            dilate_time: 0
+            times: 1
+            res: 2
+
+    output_label: 'morphology2'
+
+
+- findAndDrawContours:
+    input_label: 'morphology2'
+    verbose: true
+    output_label: 'contours'
+
+- houghline:
+    input_label: 'contours'
+    mode: 'normal' # normal ,probabilistic
+    line_num: 30
+    min_line: 10
+    threshold: 5
+    verbose: true
+    output_label: 'houghline'
+
+- houghline:
+    input_label: 'morphology3'    
+    mode: 'normal' # normal ,probabilistic
+    line_num: 30
+    min_line: 10
+    threshold: 5
+    verbose: true
+    output_label: 'houghline2'
+
+- writeOut:
+    input_label: 'morphology2'
+    prefix: 'morphology2_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'contours'
+    prefix: 'contours_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'houghline'
+    prefix: 'houghline_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'houghline2'
+    prefix: 'houghline2_'
+    path: './imgs'
+    verbose: true  
   
 - writeOut:
     input_label: 'fft'
     prefix: 'fft_'
     path: './imgs'
     verbose: true  
+  
+- writeOut:
+    input_label: 'canny2'
+    prefix: 'canny2_'
+    path: './imgs'
+    verbose: true  
 
 - writeOut:
-    input_label: 'fft_math'
-    prefix: 'fft_math_'
+    input_label: 'canny3'
+    prefix: 'canny3_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'morphology'
+    prefix: 'morphology_'
+    path: './imgs'
+    verbose: true  
+
+- writeOut:
+    input_label: 'morphology3'
+    prefix: 'morphology3_'
     path: './imgs'
     verbose: true  
 
@@ -59,14 +289,20 @@
     verbose: true  
 
 - writeOut:
-    input_label: 'hello'
-    prefix: 'origin_'
+    input_label: 'resize'
+    prefix: 'resize_'
     path: './imgs'
     verbose: true
 
 - writeOut:
-    input_label: 'canny'
-    prefix: 'canny_'
+    input_label: 'filter'
+    prefix: 'filter_'
+    path: './imgs'
+    verbose: true
+
+- writeOut:
+    input_label: 'blur2'
+    prefix: 'blur2_'
     path: './imgs'
     verbose: true
 

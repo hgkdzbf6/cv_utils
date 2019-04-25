@@ -252,23 +252,24 @@ class CVBase(object):
             input_label = get(params, 'input_label', 'hello')
             input_img = self.labels[self.index][input_label].copy()
         kernel_size = get(params, 'kernel_size',5)
-        method = get(params, 'method',5)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(kernel_size,kernel_size))
         for item in params['run']:
             erode_time = get(item,'erode_time',1)
             dilate_time = get(item,'dilate_time',1)
             times = get(item,'times',1)
-            temp = input_img
+            temp = input_img.copy()
             res = get(item, 'res', 0)
             for i in range(times):
                 if erode_time > 0:
-                    erode = cv2.dilate(temp, kernel, iterations = erode_time)
+                    erode = cv2.erode(temp, kernel, iterations = erode_time)
                 else:
-                    erode = temp
+                    erode =  np.zeros_like(temp)
+
                 if dilate_time > 0:
-                    dilate = cv2.erode(temp, kernel, iterations = dilate_time)
+                    dilate = cv2.dilate(temp, kernel, iterations = dilate_time)
                 else:
-                    dilate = temp
+                    dilate = np.zeros_like(temp)
+
                 if res == 0:
                     temp = erode - dilate
                 elif res == 1:
@@ -277,8 +278,8 @@ class CVBase(object):
                     temp = erode + dilate
                 elif res == 3:
                     temp = - erode - dilate
-            input_img = temp
-        output_img = temp
+            input_img = temp.copy()
+        output_img = input_img
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
             self.labels[self.index][output_label] = output_img
@@ -450,6 +451,47 @@ class CVBase(object):
             res = self._base_verbose(params,other)
             dump(res)
     
+    def _findAndDrawContours(self, params):
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        contours, hierarchy = cv2.findContours(input_img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE) 
+        new_contours = []
+        for contour in contours:
+            area = cv2.contourArea(contour,oriented = True)
+            # 条件1：面积要小于0
+            if area > 0:
+                continue
+            rect = cv2.minAreaRect(contour)
+            rect_area=rect[1][0]*rect[1][1] 
+            # 条件2：面积不能过小
+            if rect_area < 200:
+                continue
+            w,h = rect[1][0],rect[1][1]
+            if w<h:
+                w,h = h,w
+            # 3.保证宽度比高度要大4倍以上
+            if w/h<2.4:
+                continue
+            box = cv2.boxPoints(rect)
+            new_contours.append(contour)
+        white_img = np.zeros_like(input_img)
+        output_img = cv2.drawContours(white_img,new_contours,-1,(255,255,255),-1)
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+
+
     def _findCenterAndContours(self, params):
         if exist(params, 'input_label'):
             input_label = get(params, 'input_label', 'hello')
@@ -745,7 +787,9 @@ class CVBase(object):
             input_img = self.labels[self.index][input_label]
         ##############################
         # TODO 这里填写具体操作
-        output_img = cv2.GaussianBlur(input_img,(kernel_size,kernel_size),sigma)
+        output_img = input_img
+        if kernel_size != 0:
+            output_img = cv2.GaussianBlur(output_img,(kernel_size,kernel_size),sigma)
         output_img = cv2.Canny(output_img, low, high)
         ##############################
         if exist(params, 'output_label'):
@@ -783,7 +827,178 @@ class CVBase(object):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
             dump(res,abbr='hyk')
-    
+
+
+    '''
+    把图像的大小弄成一样的qwq
+    '''
+    def _resize(self,params):
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        width = get(params, 'width',800)
+        height = get(params, 'height',800)
+        flip = get(params, 'flip', True)
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        output_img = input_img.copy()
+        # TODO 这里填写具体操作
+        if flip and output_img.shape[0] < output_img.shape[1]:
+            output_img = cv2.rotate(output_img,cv2.ROTATE_90_COUNTERCLOCKWISE)
+        output_img = cv2.resize(output_img,(width, height))
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+
+
+    '''
+    晃动图像
+    '''
+    def _shake(self,params):
+        mode = get(params, 'mode', 'min_shake')
+        shake_times =  get(params, 'shake_times', 3)
+        shake_stride = get(params, 'shake_stride', 3)
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        output_img = input_img.copy()
+        # TODO 这里填写具体操作
+        if mode == 'max_shake':
+            for _ in range(shake_times):
+                output_img[shake_stride:,:] = np.maximum(output_img[shake_stride:,:] , output_img[:-shake_stride,:])
+                output_img[:,shake_stride:] = np.maximum(output_img[:,shake_stride:] , output_img[:,:-shake_stride])
+        elif mode == 'min_shake':
+            for _ in range(shake_times):
+                output_img[shake_stride:,:] = np.minimum(output_img[shake_stride:,:] , output_img[:-shake_stride,:])
+                output_img[:,shake_stride:] = np.minimum(output_img[:,shake_stride:] , output_img[:,:-shake_stride])
+        output_img = output_img.astype(np.uint8)
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+
+    '''
+    图像增强
+    '''
+    def _enhance(self,params):
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        # output_img = cv2.filter2D(input_img,)
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+
+    '''
+    直方图均质化
+    '''
+    def _equalHist(self,params):
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        output_img = cv2.equalizeHist(input_img)
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+
+    '''
+    把一个图片复制成另一个名称
+    '''
+    def _houghline(self,params):
+        line_num = get(params, 'line_num',20)
+        min_line = get(params, 'line_num',10)
+        threshold = get(params, 'threshold',100)
+        mode = get(params, 'mode','normal')
+        ##############################
+        # TODO 这里填写输入参数
+        ##############################
+        if exist(params, 'input_label'):
+            input_label = get(params, 'input_label', 'hello')
+            input_img = self.labels[self.index][input_label]
+        ##############################
+        # TODO 这里填写具体操作
+        output_img = input_img.copy()
+        output_img = cv2.cvtColor(output_img, cv2.COLOR_GRAY2BGR)
+        if mode == 'probabilistic':
+            lines = cv2.HoughLinesP(input_img, 1, np.pi/180, threshold = threshold, lines = line_num, minLineLength = min_line, maxLineGap=60)            
+            if isinstance(lines,np.ndarray):
+                for x1,y1,x2,y2 in lines[0]:
+                    color = (0,0,255)
+                    print(x1,y1,x2,y2)
+                    cv2.line(output_img, (x1,y1),(x2,y2), color,4)
+        elif mode=='normal':
+            lines = cv2.HoughLines(input_img, 1, np.pi/180, 400)
+            if isinstance(lines,np.ndarray):
+                for line in lines:
+                    rho, theta = line[0]
+                    a = np.cos(theta)
+                    b = np.sin(theta)
+                    x0 = a * rho
+                    y0 = b * rho
+                    x1 = int(x0 + 1000 * (-b))
+                    y1 = int(y0 + 1000 * (a))
+                    x2 = int(x0 - 1000 * (-b))
+                    y2 = int(y0 - 1000 * (a))
+                    cv2.line(output_img, (x1, y1), (x2, y2), (0, 0, 255)) 
+        ##############################
+        if exist(params, 'output_label'):
+            output_label = get(params, 'output_label', 'hello')
+            self.labels[self.index][output_label] = output_img
+        ##############################
+        # TODO 这里也需要修改打印输出时怎么样的
+        ##############################
+        if test(params, 'verbose',True):
+            other = '操作为%s，' % (sys._getframe().f_code.co_name,)
+            res = self._base_verbose(params,other)
+            dump(res,abbr='hyk')
+
     '''
     傅里叶变换
     '''
@@ -798,9 +1013,6 @@ class CVBase(object):
         # TODO 这里填写具体操作
         output_img = np.fft.fft2(input_img)
         self.__set_param_out(params,'fft',output_img)
-
-        print(np.max(np.log(np.abs(output_img))))
-        print(np.min(np.log(np.abs(output_img))))
         output_img = np.log(np.abs(output_img))
         output_img = np.fft.fftshift(output_img)
         output_img = CVBase.__norm(output_img)
@@ -966,6 +1178,7 @@ class CVBase(object):
     def _blur(self,params):
         mode= get(params,'mode','normal')
         kernel_size = get(params,'kernel_size', 3)
+        sigma = get(params, 'sigma', 3)
         ##############################
         # TODO 这里填写输入参数
         ##############################
@@ -975,9 +1188,12 @@ class CVBase(object):
         ##############################
         # TODO 这里填写具体操作
         if mode == 'normal':
-            output_img = cv2.blur(input_img,kernel_size)
+            output_img = cv2.blur(input_img,(kernel_size,kernel_size))
         elif mode == 'median':
             output_img = cv2.medianBlur(input_img,kernel_size)  
+        elif mode == "gaussian":
+            output_img = cv2.GaussianBlur(input_img,(kernel_size,kernel_size),sigma)
+
         ##############################
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
@@ -992,6 +1208,8 @@ class CVBase(object):
 
     '''
     使用滤镜
+    1是x
+    0是y
     '''
     def _filter(self,params):
         kernel_type = get(params, 'kernel_type', 'gaussian')
@@ -1032,13 +1250,20 @@ class CVBase(object):
             kernel_x = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
             output_img1 = cv2.filter2D(input_img,ddepth=0,kernel = kernel_y)
             output_img2 = cv2.filter2D(input_img,ddepth=0,kernel = kernel_x)
-            output_img = np.sqrt(output_img1**2 + output_img2 ** 2) * 16
+            # output_img = np.sqrt(output_img1**2 + output_img2 ** 2) * 16
+            output_img = np.where(output_img1>output_img2,output_img1,output_img2)
+        elif (kernel_type,kernel_size,direction) == ('scharr',3,-1):
+            kernel_y = np.array([[-3,-10,-3],[0,0,0],[3,10,3]])
+            kernel_x = np.array([[-3,0,3],[-10,0,10],[-3,0,3]])
+            output_img1 = cv2.filter2D(input_img,ddepth=0,kernel = kernel_y)
+            output_img2 = cv2.filter2D(input_img,ddepth=0,kernel = kernel_x)
+            # output_img = np.sqrt(output_img1**2 + output_img2 ** 2) * 16
+            output_img = np.where(output_img1>output_img2,output_img1,output_img2)
             # output_img = input_img
         output_img = output_img.astype(np.uint8)
         ##############################
         if exist(params, 'output_label'):
             output_label = get(params, 'output_label', 'hello')
-            print(output_img)
             self.labels[self.index][output_label] = output_img
         ##############################
         # TODO 这里也需要修改打印输出时怎么样的
@@ -1147,7 +1372,6 @@ class CVBase(object):
             other = '操作为%s，' % (sys._getframe().f_code.co_name,)
             res = self._base_verbose(params,other)
             dump(res,abbr='hyk')
-    
             
     def _dump_params(self,params):
         dump_simple(self.params[0])
